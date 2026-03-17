@@ -27,6 +27,9 @@ La institución necesita controlar el correcto uso de las salas de cómputo gara
 * Asignación de monitores responsables a horarios específicos en las salas.
 * Registro y control de solicitudes de cambio de turno entre monitores.
 
+## Manejo de restricciones del Horario monitor y Horario monitoria
+En la base de datos cada asesor registrado tendra el horario del semestre. esto con el fin de hacer una comparacion de horarios de monitoria y horarios de disponibilidad del monitor
+de la misma manera se haran las validaciones para las solicitudes de cambio
 
 
 ## Desarrolladores del Proyecto
