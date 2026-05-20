@@ -48,11 +48,8 @@ def crear_asignacion_view(request):
 		selected_semestre_id = str(semestre_default.pk)
 
 	selected_sala = None
-	sala_display = ""
 	if selected_sala_id:
 		selected_sala = Sala.objects.filter(id_sala=selected_sala_id).first()
-		if selected_sala is not None:
-			sala_display = f"{selected_sala.codigo} - {selected_sala.nombre}"
 
 	selected_semestre = None
 	if selected_semestre_id:
@@ -68,7 +65,8 @@ def crear_asignacion_view(request):
 		if form.is_valid():
 			monitor = form.cleaned_data["monitor"]
 			semestre = form.cleaned_data["semestre"]
-			sala_id = form.cleaned_data["sala_id"]
+			sala = form.cleaned_data["sala"]
+			sala_id = sala.id_sala
 			selecciones = form.cleaned_data["horarios"]
 			try:
 				creadas = crear_asignaciones(
@@ -92,8 +90,7 @@ def crear_asignacion_view(request):
 		if selected_semestre_id:
 			initial["semestre"] = selected_semestre_id
 		if selected_sala is not None:
-			initial["sala"] = sala_display
-			initial["sala_id"] = selected_sala.id_sala
+			initial["sala"] = selected_sala.pk
 
 		form = CrearAsignacionesForm(
 			initial=initial,
@@ -209,7 +206,6 @@ def crear_asignacion_view(request):
 		"dias": dias,
 		"grid_rows": grid_rows,
 		"selected_keys": selected_keys_set,
-		"sala_display": sala_display,
 		"admin_username": request.user.username,
 	}
 	return render(request, "asignaciones/crear_asignacion.html", context)
