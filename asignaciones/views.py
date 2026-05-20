@@ -55,6 +55,12 @@ def crear_asignacion_view(request):
 	if selected_semestre_id:
 		selected_semestre = Semestre.objects.filter(pk=selected_semestre_id).first()
 
+	selected_monitor = None
+	if selected_monitor_email:
+		selected_monitor = Usuario.objects.filter(
+			email=selected_monitor_email, rol=Usuario.MONITOR
+		).first()
+
 	if request.method == "POST":
 		form = CrearAsignacionesForm(
 			request.POST,
@@ -108,6 +114,20 @@ def crear_asignacion_view(request):
 	if request.method == "POST":
 		raw_selected = request.POST.get("horarios") or ""
 		selected_keys_set = {x.strip() for x in raw_selected.split(",") if x.strip()}
+
+	# Asignaciones existentes del monitor seleccionado (en cualquier sala)
+	monitor_conflict_slots: set[tuple[int, time, time]] = set()
+	if selected_monitor is not None and selected_semestre is not None:
+		monitor_asignaciones = list(
+			Asignacion.objects.filter(
+				monitor=selected_monitor,
+				semestre=selected_semestre,
+			).select_related("horario")
+		)
+		for a in monitor_asignaciones:
+			monitor_conflict_slots.add(
+				(a.horario.dia_semana, a.horario.hora_inicio, a.horario.hora_fin)
+			)
 
 	if selected_sala is not None and selected_semestre is not None:
 		horarios_sala = list(
@@ -171,13 +191,27 @@ def crear_asignacion_view(request):
 							}
 						)
 					else:
-						row["cells"].append(
-							{
-								"status": "available",
-								"key": f"h:{horario.id_horario}",
-								"horario_id": horario.id_horario,
-							}
+						# Verificar si el monitor seleccionado ya tiene turno a esta hora
+						is_monitor_busy = any(
+							d == dia_value and s <= inicio and e >= fin
+							for d, s, e in monitor_conflict_slots
 						)
+						if is_monitor_busy:
+							row["cells"].append(
+								{
+									"status": "monitor_busy",
+									"key": f"h:{horario.id_horario}",
+									"horario_id": horario.id_horario,
+								}
+							)
+						else:
+							row["cells"].append(
+								{
+									"status": "available",
+									"key": f"h:{horario.id_horario}",
+									"horario_id": horario.id_horario,
+								}
+							)
 					continue
 
 				# No existe horario exacto: permitir crear si no se cruza con uno existente.
@@ -188,12 +222,25 @@ def crear_asignacion_view(request):
 				if overlap:
 					row["cells"].append({"status": "none"})
 				else:
-					row["cells"].append(
-						{
-							"status": "available",
-							"key": f"n:{dia_value}|{_fmt_hora(inicio)}|{_fmt_hora(fin)}",
-						}
+					# Verificar si el monitor seleccionado ya tiene turno a esta hora
+					is_monitor_busy = any(
+						d == dia_value and s <= inicio and e >= fin
+						for d, s, e in monitor_conflict_slots
 					)
+					if is_monitor_busy:
+						row["cells"].append(
+							{
+								"status": "monitor_busy",
+								"key": f"n:{dia_value}|{_fmt_hora(inicio)}|{_fmt_hora(fin)}",
+							}
+						)
+					else:
+						row["cells"].append(
+							{
+								"status": "available",
+								"key": f"n:{dia_value}|{_fmt_hora(inicio)}|{_fmt_hora(fin)}",
+							}
+						)
 
 			grid_rows.append(row)
 
