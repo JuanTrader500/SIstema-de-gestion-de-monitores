@@ -2,7 +2,7 @@ from functools import wraps
 import json
 
 from django.contrib import messages
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core.mail import send_mail
@@ -117,6 +117,12 @@ def admin_dashboard(request):
 @monitor_required
 def monitor_dashboard(request):
     return render(request, 'usuarios/monitor_dashboard.html')
+
+
+@require_http_methods(["GET"])
+def logout_view(request):
+    logout(request)
+    return redirect('login')
 
 
 @admin_required
