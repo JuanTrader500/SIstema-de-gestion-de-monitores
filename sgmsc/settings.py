@@ -54,6 +54,7 @@ INSTALLED_APPS = [
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
 LOGIN_URL = 'login'
+PASSWORD_RESET_TIMEOUT = 3600 # 1 hora en segundos para el token de restablecimiento de contraseña
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

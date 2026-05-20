@@ -33,8 +33,6 @@ def _validation_error_to_text(exc: ValidationError) -> str:
 @admin_required
 @require_http_methods(["GET", "POST"])
 def crear_asignacion_view(request):
-	salas = list(Sala.objects.all().order_by("codigo"))
-	monitores = list(Usuario.objects.filter(rol=Usuario.MONITOR).order_by("email"))
 	semestres_qs = Semestre.objects.order_by("-anio", "-periodo")
 
 	semestre_activo = semestres_qs.filter(activo=True).first()
@@ -246,8 +244,6 @@ def crear_asignacion_view(request):
 
 	context = {
 		"form": form,
-		"salas": salas,
-		"monitores": monitores,
 		"selected_sala": selected_sala,
 		"selected_semestre": selected_semestre,
 		"dias": dias,

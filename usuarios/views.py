@@ -9,6 +9,7 @@ from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_protect
@@ -81,9 +82,15 @@ def crear_monitor_view(request):
                 password=temp_password,
             )
 
-            # Send credentials directly via SMTP.
-            subject = 'Bienvenido al SGM SC - Tus credenciales de acceso'
-            message = (
+            # Send credentials via SMTP with HTML template.
+            html_message = render_to_string('emails/bienvenida_monitor.html', {
+                'first_name': monitor.first_name,
+                'email': monitor.email,
+                'temp_password': temp_password,
+                'protocol': request.scheme,
+                'domain': request.get_host(),
+            })
+            text_message = (
                 f"Hola {monitor.first_name},\n\n"
                 "Tu cuenta de monitor fue creada.\n"
                 f"Usuario: {monitor.email}\n"
@@ -91,10 +98,11 @@ def crear_monitor_view(request):
                 "Por favor inicia sesion y cambia tu contrasena lo antes posible."
             )
             send_mail(
-                'Bienvenido al SGM SC - Tus credenciales de acceso', # Asunto
-                f'Hola {monitor.first_name}, tu clave es: {temp_password}', # Mensaje
-                settings.EMAIL_HOST_USER,  # <-- ¡ESTE ES EL REMITENTE! Vital que esté aquí
-                [monitor.email],           # Destinatario
+                'Bienvenido al SGM SC - Tus credenciales de acceso',
+                text_message,
+                settings.EMAIL_HOST_USER,
+                [monitor.email],
+                html_message=html_message,
                 fail_silently=False,
 )
 
