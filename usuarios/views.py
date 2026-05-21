@@ -113,14 +113,22 @@ def crear_monitor_view(request):
                 f"{reset_url}\n\n"
                 "El enlace expirará en 1 hora."
             )
-            send_mail(
-                "Bienvenido al SGM SC - Establece tu contraseña",
-                text_message,
-                settings.EMAIL_HOST_USER,
-                [monitor.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
+            try:
+                send_mail(
+                    "Bienvenido al SGM SC - Establece tu contraseña",
+                    text_message,
+                    settings.EMAIL_HOST_USER,
+                    [monitor.email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+            except Exception:
+                monitor.delete()
+                messages.error(
+                    request,
+                    "No se pudo enviar el correo de activación. El monitor no fue creado.",
+                )
+                return render(request, "usuarios/crear_monitor.html", {"form": form})
 
             messages.success(
                 request, "Monitor creado. Se envió el correo con el enlace de activación."
