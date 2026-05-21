@@ -15,6 +15,7 @@ from decouple import config
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -124,9 +125,18 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Dominio seguro para enlaces en correos (mitiga Host Header Injection).
 # SITE_URL es la única fuente de verdad; SITE_PROTOCOL/SITE_DOMAIN se derivan.
-SITE_URL = os.getenv("SITE_URL", "http://localhost:8000").rstrip("/")
-SITE_PROTOCOL = SITE_URL.split("://")[0]
-SITE_DOMAIN = SITE_URL.split("://")[1]
+_raw_site_url = os.getenv("SITE_URL", "http://localhost:8000").strip().rstrip("/")
+_parsed_site_url = urlparse(
+    _raw_site_url if "://" in _raw_site_url else f"http://{_raw_site_url}"
+)
+if _parsed_site_url.scheme and _parsed_site_url.hostname:
+    SITE_PROTOCOL = _parsed_site_url.scheme
+    SITE_DOMAIN = _parsed_site_url.netloc
+    SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
+else:
+    SITE_PROTOCOL = "http"
+    SITE_DOMAIN = "localhost:8000"
+    SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
 
 
 # --- TEMPORALMENTE PARA PROBAR ---
