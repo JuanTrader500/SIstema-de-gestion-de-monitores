@@ -8,6 +8,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 
 from horarios.models import Horario
+from usuarios.models import Usuario
 
 from .models import Asignacion
 
@@ -170,11 +171,8 @@ def crear_asignaciones(*, monitor, semestre, sala_id: int, seleccion_tokens: lis
 					"Algunos bloques ya están ocupados para ese periodo. Recarga la grilla y vuelve a intentar."
 				)
 
-			# Bloquear asignaciones existentes del monitor para evitar carreras.
-			list(Asignacion.objects.filter(
-				monitor=monitor,
-				semestre=semestre,
-			).select_for_update())
+			# Bloquear fila del monitor para serializar acceso por monitor+semestre.
+			list(Usuario.objects.filter(pk=monitor.pk).select_for_update())
 
 			# Validar que el monitor no tenga asignaciones en otras salas
 			# que se crucen con los horarios seleccionados (única query).

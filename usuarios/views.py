@@ -1,22 +1,26 @@
-from functools import wraps
 import json
+import logging
+from functools import wraps
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from django.conf import settings
-from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied
+from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_http_methods
 from asgiref.sync import async_to_sync
+
+logger = logging.getLogger(__name__)
 
 from .forms import MonitorCreationForm
 from .models import Usuario
@@ -51,7 +55,7 @@ def login_view(request):
             login(request, user)
             return redirect("post_login_router")
         return render(
-            request, "usuarios/login.html", {"error": "Credenciales invalidas."}
+            request, "usuarios/login.html", {"error": "Credenciales inválidas."}
         )
 
     return render(request, "usuarios/login.html")
@@ -88,10 +92,8 @@ def crear_monitor_view(request):
             token_generator = PasswordResetTokenGenerator()
             uid = urlsafe_base64_encode(force_bytes(monitor.pk))
             token = token_generator.make_token(monitor)
-            reset_url = (
-                f"{settings.SITE_PROTOCOL}://{settings.SITE_DOMAIN}"
-                f"/set-password/{uid}/{token}/"
-            )
+            reset_path = reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token})
+            reset_url = f"{settings.SITE_PROTOCOL}://{settings.SITE_DOMAIN}{reset_path}"
 
             # Send welcome email with reset link (no password in plaintext).
             html_message = render_to_string(
@@ -154,6 +156,21 @@ class CustomPasswordResetView(auth_views.PasswordResetView):
         context["domain"] = settings.SITE_DOMAIN
         return context
 
+    def form_valid(self, form):
+        form.save(
+            use_https=settings.SITE_PROTOCOL == "https",
+            email_template_name=self.email_template_name,
+            subject_template_name=self.subject_template_name,
+            request=self.request,
+            html_email_template_name=self.html_email_template_name,
+            domain_override=settings.SITE_DOMAIN,
+            extra_email_context={
+                "protocol": settings.SITE_PROTOCOL,
+                "domain": settings.SITE_DOMAIN,
+            },
+        )
+        return super(auth_views.PasswordResetView, self).form_valid(form)
+
 
 @require_http_methods(["POST"])
 @csrf_protect
@@ -201,4 +218,5 @@ def ai_chat_api(request):
     except PermissionDenied:
         return JsonResponse({"error": "No tienes permisos"}, status=403)
     except Exception as e:
-        return JsonResponse({"error": f"Error: {str(e)}"}, status=500)
+        logger.exception("Error en ai_chat_api: %s", e)
+        return JsonResponse({"error": "Error interno del servidor"}, status=500)
