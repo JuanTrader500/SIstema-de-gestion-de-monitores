@@ -40,7 +40,7 @@ def crear_asignacion_view(request):
 
 	selected_sala_id = request.GET.get("sala_id") or request.POST.get("sala_id")
 	selected_semestre_id = request.GET.get("semestre") or request.POST.get("semestre")
-	selected_monitor_email = request.GET.get("monitor")
+	selected_monitor_email = request.GET.get("monitor") or request.POST.get("monitor")
 
 	if not selected_semestre_id and semestre_default is not None:
 		selected_semestre_id = str(semestre_default.pk)
@@ -191,7 +191,7 @@ def crear_asignacion_view(request):
 					else:
 						# Verificar si el monitor seleccionado ya tiene turno a esta hora
 						is_monitor_busy = any(
-							d == dia_value and s <= inicio and e >= fin
+							d == dia_value and s < fin and e > inicio
 							for d, s, e in monitor_conflict_slots
 						)
 						if is_monitor_busy:
@@ -222,7 +222,7 @@ def crear_asignacion_view(request):
 				else:
 					# Verificar si el monitor seleccionado ya tiene turno a esta hora
 					is_monitor_busy = any(
-						d == dia_value and s <= inicio and e >= fin
+						d == dia_value and s < fin and e > inicio
 						for d, s, e in monitor_conflict_slots
 					)
 					if is_monitor_busy:

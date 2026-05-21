@@ -3,11 +3,12 @@ import json
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core.mail import send_mail
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
@@ -87,8 +88,8 @@ def crear_monitor_view(request):
                 'first_name': monitor.first_name,
                 'email': monitor.email,
                 'temp_password': temp_password,
-                'protocol': request.scheme,
-                'domain': request.get_host(),
+                'protocol': settings.SITE_PROTOCOL,
+                'domain': settings.SITE_DOMAIN,
             })
             text_message = (
                 f"Hola {monitor.first_name},\n\n"
@@ -127,10 +128,22 @@ def monitor_dashboard(request):
     return render(request, 'usuarios/monitor_dashboard.html')
 
 
-@require_http_methods(["GET"])
+class CustomPasswordResetView(auth_views.PasswordResetView):
+    """PasswordResetView que usa SITE_DOMAIN/SITE_PROTOCOL de settings
+    en lugar de request.get_host() (mitiga Host Header Injection)."""
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["protocol"] = settings.SITE_PROTOCOL
+        context["domain"] = settings.SITE_DOMAIN
+        return context
+
+
+@require_http_methods(["POST"])
+@csrf_protect
 def logout_view(request):
-    logout(request)
-    return redirect('login')
+	logout(request)
+	return redirect('login')
 
 
 @admin_required

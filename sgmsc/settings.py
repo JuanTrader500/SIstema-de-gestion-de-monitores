@@ -122,6 +122,10 @@ EMAIL_JEFE_DEPARTAMENTO = os.getenv("EMAIL_JEFE_DEPARTAMENTO")
 #ESTA LÍNEA (Le dice a Django cuál es el remitente por defecto)
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+# Dominio seguro para enlaces en correos (mitiga Host Header Injection)
+SITE_DOMAIN = os.getenv("SITE_DOMAIN", "127.0.0.1:8000")
+SITE_PROTOCOL = os.getenv("SITE_PROTOCOL", "http")
+
 
 # --- TEMPORALMENTE PARA PROBAR ---
 print(f"DEBUG: El correo cargado es: {EMAIL_HOST_USER}")
