@@ -1,17 +1,46 @@
 <!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8">
-    <title>Bienvenida</title>
-  </head>
-  <body>
-    <p>Hola {{ user.get_full_name }},</p>
-    <p>Tu cuenta de monitor fue creada. Para definir tu contrasena, haz clic en el siguiente enlace:</p>
-    <p>
-      <a href="{{ protocol }}://{{ domain }}{% url 'password_reset_confirm' uidb64=uid token=token %}">
-        Crear contrasena
-      </a>
-    </p>
-    <p>Si no solicitaste esta cuenta, ignora este mensaje.</p>
-  </body>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table role="presentation" style="width:100%;max-width:480px;margin:0 auto;padding:40px 16px">
+    <tr>
+      <td style="text-align:center;padding-bottom:8px">
+        <span style="font-size:20px;font-weight:600;color:#004a99">SGM SC</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="background:#ffffff;border-radius:12px;padding:32px 24px">
+        <h1 style="font-size:18px;font-weight:600;color:#1a1a1a;margin:0 0 8px">Bienvenido, {{ first_name }}</h1>
+        <p style="font-size:14px;color:#666;line-height:1.6;margin:0 0 16px">
+          Tu cuenta de monitor fue creada en el Sistema de Gestión de Monitores.
+        </p>
+        <table role="presentation" style="width:100%">
+          <tr>
+            <td style="background:#f8f9fa;border-radius:8px;padding:16px;margin-bottom:20px">
+              <p style="font-size:13px;color:#666;margin:0 0 8px"><strong style="color:#333">Usuario:</strong> {{ email }}</p>
+              <p style="font-size:12px;color:#999;margin:8px 0 0">Haz clic en el botón de abajo para establecer tu contraseña. El enlace expira en 1 hora.</p>
+            </td>
+          </tr>
+        </table>
+        <table role="presentation" style="width:100%">
+          <tr>
+            <td style="text-align:center">
+              <a href="{{ reset_url }}" style="display:inline-block;background:#004a99;color:#ffffff;text-decoration:none;font-size:14px;font-weight:500;padding:12px 32px;border-radius:8px">
+                Establecer contraseña
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="text-align:center;padding-top:16px">
+        <span style="font-size:12px;color:#bbb">SGM SC &mdash; {{ email }}</span>
+      </td>
+    </tr>
+  </table>
+</body>
 </html>

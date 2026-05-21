@@ -12,8 +12,14 @@
     }
 
     .horario-cell[data-status="occupied"],
-    .horario-cell[data-status="none"] {
+    .horario-cell[data-status="none"],
+    .horario-cell[data-status="monitor_busy"] {
       cursor: not-allowed;
+    }
+
+    .horario-cell[data-status="monitor_busy"] {
+      background-color: #fff3cd !important;
+      border-color: #ffc107 !important;
     }
 
     .sgmsc-selected {
@@ -89,6 +95,7 @@
                 <span class="fw-semibold">Estados:</span>
                 <span class="ms-2">Disponible (verde)</span>
                 <span class="ms-2">Ocupado (rojo)</span>
+                <span class="ms-2">Ocupado por monitor (amarillo)</span>
                 <span class="ms-2">Seleccionado (azul)</span>
               </div>
             </div>
@@ -119,6 +126,11 @@
                                 {% if cell.monitor and cell.monitor != cell.monitor_email %}
                                   <div class="text-muted">{{ cell.monitor }}</div>
                                 {% endif %}
+                              </td>
+                            {% elif cell.status == 'monitor_busy' %}
+                              <td class="horario-cell bg-warning-subtle border-warning small" data-status="monitor_busy" data-key="{{ cell.key }}">
+                                <div class="fw-semibold text-warning-emphasis">Ocupado</div>
+                                <div class="text-muted small">por este monitor (otra sala)</div>
                               </td>
                             {% else %}
                               <td
@@ -181,6 +193,9 @@
       semestreSelect?.addEventListener("change", () => {
         window.location.assign(buildFilterUrl());
       });
+      monitorSelect?.addEventListener("change", () => {
+        window.location.assign(buildFilterUrl());
+      });
 
       const availableCells = Array.from(
         document.querySelectorAll("td[data-status='available'][data-key]")
@@ -206,8 +221,6 @@
           cell.classList.remove("sgmsc-selected");
         });
       };
-
-      monitorSelect?.addEventListener("change", clearSelections);
 
       availableCells.forEach((cell) => {
         const key = (cell.dataset.key || "").trim();
