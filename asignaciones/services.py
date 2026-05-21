@@ -5,6 +5,7 @@ from datetime import datetime, time
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 
 from horarios.models import Horario
 
@@ -169,23 +170,32 @@ def crear_asignaciones(*, monitor, semestre, sala_id: int, seleccion_tokens: lis
 					"Algunos bloques ya están ocupados para ese periodo. Recarga la grilla y vuelve a intentar."
 				)
 
+			# Bloquear asignaciones existentes del monitor para evitar carreras.
+			list(Asignacion.objects.filter(
+				monitor=monitor,
+				semestre=semestre,
+			).select_for_update())
+
 			# Validar que el monitor no tenga asignaciones en otras salas
-			# que se crucen con los horarios seleccionados.
+			# que se crucen con los horarios seleccionados (única query).
+			condition = Q()
 			for h in horarios_final.values():
-				conflicto = Asignacion.objects.filter(
-					monitor=monitor,
-					semestre=semestre,
+				condition |= Q(
 					horario__dia_semana=h.dia_semana,
 					horario__hora_inicio__lt=h.hora_fin,
 					horario__hora_fin__gt=h.hora_inicio,
-				).exclude(
-					horario_id=h.id_horario,
-				).exists()
-				if conflicto:
-					raise ValidationError(
-						f"El monitor ya tiene una asignación que se cruza con "
-						f"{h.get_dia_semana_display()} {h.hora_inicio:%H:%M}-{h.hora_fin:%H:%M} en otra sala."
-					)
+				)
+			conflicto = Asignacion.objects.filter(
+				monitor=monitor,
+				semestre=semestre,
+			).exclude(
+				horario_id__in=horario_ids,
+			).filter(condition).exists()
+			if conflicto:
+				raise ValidationError(
+					"El monitor ya tiene asignaciones en otro(s) bloque(s) que se cruzan "
+					"con los horarios seleccionados en otra sala."
+				)
 
 			creadas = 0
 			for hid in horario_ids:
