@@ -122,8 +122,8 @@ def crear_monitor_view(request):
                     html_message=html_message,
                     fail_silently=False,
                 )
-            except Exception as e:
-                logger.exception("Error enviando correo de activación para %s: %s", monitor.email, e)
+            except Exception:
+                logger.exception("Error enviando correo de activación para %s", monitor.email)
                 monitor.delete()
                 messages.error(
                     request,
