@@ -122,9 +122,11 @@ EMAIL_JEFE_DEPARTAMENTO = os.getenv("EMAIL_JEFE_DEPARTAMENTO")
 #ESTA LÍNEA (Le dice a Django cuál es el remitente por defecto)
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-# Dominio seguro para enlaces en correos (mitiga Host Header Injection)
-SITE_DOMAIN = os.getenv("SITE_DOMAIN", "127.0.0.1:8000")
-SITE_PROTOCOL = os.getenv("SITE_PROTOCOL", "http")
+# Dominio seguro para enlaces en correos (mitiga Host Header Injection).
+# SITE_URL es la única fuente de verdad; SITE_PROTOCOL/SITE_DOMAIN se derivan.
+SITE_URL = os.getenv("SITE_URL", "http://localhost:8000").rstrip("/")
+SITE_PROTOCOL = SITE_URL.split("://")[0]
+SITE_DOMAIN = SITE_URL.split("://")[1]
 
 
 # --- TEMPORALMENTE PARA PROBAR ---
@@ -171,4 +173,3 @@ STATIC_URL = 'static/'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-SITE_URL = os.getenv('SITE_URL', 'http://localhost:8000')

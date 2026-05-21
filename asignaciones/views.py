@@ -113,18 +113,16 @@ def crear_asignacion_view(request):
 		raw_selected = request.POST.get("horarios") or ""
 		selected_keys_set = {x.strip() for x in raw_selected.split(",") if x.strip()}
 
-	# Asignaciones existentes del monitor seleccionado (en cualquier sala)
-	monitor_conflict_slots: set[tuple[int, time, time]] = set()
+	# Asignaciones existentes del monitor seleccionado (en cualquier sala),
+	# indexadas por día para búsqueda O(1) por día.
+	monitor_by_day: dict[int, list[tuple[time, time]]] = {}
 	if selected_monitor is not None and selected_semestre is not None:
-		monitor_asignaciones = list(
-			Asignacion.objects.filter(
-				monitor=selected_monitor,
-				semestre=selected_semestre,
-			).select_related("horario")
-		)
-		for a in monitor_asignaciones:
-			monitor_conflict_slots.add(
-				(a.horario.dia_semana, a.horario.hora_inicio, a.horario.hora_fin)
+		for a in Asignacion.objects.filter(
+			monitor=selected_monitor,
+			semestre=selected_semestre,
+		).select_related("horario").iterator():
+			monitor_by_day.setdefault(a.horario.dia_semana, []).append(
+				(a.horario.hora_inicio, a.horario.hora_fin)
 			)
 
 	if selected_sala is not None and selected_semestre is not None:
@@ -191,8 +189,8 @@ def crear_asignacion_view(request):
 					else:
 						# Verificar si el monitor seleccionado ya tiene turno a esta hora
 						is_monitor_busy = any(
-							d == dia_value and s < fin and e > inicio
-							for d, s, e in monitor_conflict_slots
+							s < fin and e > inicio
+							for s, e in monitor_by_day.get(dia_value, [])
 						)
 						if is_monitor_busy:
 							row["cells"].append(
@@ -222,8 +220,8 @@ def crear_asignacion_view(request):
 				else:
 					# Verificar si el monitor seleccionado ya tiene turno a esta hora
 					is_monitor_busy = any(
-						d == dia_value and s < fin and e > inicio
-						for d, s, e in monitor_conflict_slots
+						s < fin and e > inicio
+						for s, e in monitor_by_day.get(dia_value, [])
 					)
 					if is_monitor_busy:
 						row["cells"].append(

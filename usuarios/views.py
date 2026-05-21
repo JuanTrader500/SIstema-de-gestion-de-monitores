@@ -93,7 +93,8 @@ def crear_monitor_view(request):
             uid = urlsafe_base64_encode(force_bytes(monitor.pk))
             token = token_generator.make_token(monitor)
             reset_path = reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token})
-            reset_url = f"{settings.SITE_PROTOCOL}://{settings.SITE_DOMAIN}{reset_path}"
+            site_url = settings.SITE_URL.rstrip("/")
+            reset_url = f"{site_url}{reset_path}"
 
             # Send welcome email with reset link (no password in plaintext).
             html_message = render_to_string(
@@ -102,17 +103,15 @@ def crear_monitor_view(request):
                     "first_name": monitor.first_name,
                     "email": monitor.email,
                     "reset_url": reset_url,
-                    "protocol": settings.SITE_PROTOCOL,
-                    "domain": settings.SITE_DOMAIN,
                 },
             )
             text_message = (
                 f"Hola {monitor.first_name},\n\n"
                 "Tu cuenta de monitor fue creada.\n"
                 f"Usuario: {monitor.email}\n\n"
-                "Para establecer tu contrasena, visita el siguiente enlace:\n"
+                "Para establecer tu contraseña, visita el siguiente enlace:\n"
                 f"{reset_url}\n\n"
-                "El enlace expirara en 1 hora."
+                "El enlace expirará en 1 hora."
             )
             send_mail(
                 "Bienvenido al SGM SC - Establece tu contraseña",
@@ -124,7 +123,7 @@ def crear_monitor_view(request):
             )
 
             messages.success(
-                request, "Monitor creado. Se envio el correo con el enlace de activación."
+                request, "Monitor creado. Se envió el correo con el enlace de activación."
             )
             return redirect("admin_dashboard")
     else:
