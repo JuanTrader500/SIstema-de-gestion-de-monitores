@@ -8,3 +8,5 @@ pgvector/
 db.sqlite3
 # Media files
 media/reports/*.xlsx
+
+/SIstema-de-gestion-de-monitores

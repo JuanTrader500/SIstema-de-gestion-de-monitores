@@ -10,12 +10,11 @@
       min-width: 120px;
       height: 62px;
     }
-
     .horario-cell[data-status="occupied"],
-    .horario-cell[data-status="none"] {
+    .horario-cell[data-status="none"],
+    .horario-cell[data-status="monitor_busy"] {
       cursor: not-allowed;
     }
-
     .sgmsc-selected {
       background-color: var(--sgmsc-navy) !important;
       border-color: var(--sgmsc-navy) !important;
@@ -26,7 +25,7 @@
 
 {% block content %}
   {% include 'usuarios/partials/chat_panel.html' %}
-  
+
   <div class="d-flex justify-content-center py-5">
     <div style="max-width: 1200px; width: 100%; padding: 0 20px;">
       <div class="card shadow-sm border-0">
@@ -50,7 +49,7 @@
               </div>
             {% endif %}
 
-            <div class="row g-3">
+            <div class="row g-3" hx-boost="false">
               <div class="col-12 col-lg-5">
                 <label class="form-label" for="{{ form.sala.id_for_label }}">{{ form.sala.label }}</label>
                 {{ form.sala }}
@@ -89,61 +88,14 @@
                 <span class="fw-semibold">Estados:</span>
                 <span class="ms-2">Disponible (verde)</span>
                 <span class="ms-2">Ocupado (rojo)</span>
+                <span class="ms-2">Monitor ocupado (amarillo)</span>
                 <span class="ms-2">Seleccionado (azul)</span>
               </div>
             </div>
 
-            {% if selected_sala and selected_semestre %}
-              {% if grid_rows %}
-                <div class="table-responsive">
-                  <table class="table table-bordered align-middle text-center mb-0">
-                    <thead class="table-light">
-                      <tr>
-                        <th scope="col" class="text-start" style="width: 160px;">Franja</th>
-                        {% for dia_value, dia_label in dias %}
-                          <th scope="col">{{ dia_label }}</th>
-                        {% endfor %}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for row in grid_rows %}
-                        <tr>
-                          <th scope="row" class="text-start text-nowrap">{{ row.label }}</th>
-                          {% for cell in row.cells %}
-                            {% if cell.status == 'none' %}
-                              <td class="bg-light text-muted small" data-status="none">—</td>
-                            {% elif cell.status == 'occupied' %}
-                              <td class="bg-danger-subtle border-danger small" data-status="occupied" data-horario-id="{{ cell.horario_id }}">
-                                <div class="fw-semibold text-danger-emphasis">Ocupado</div>
-                                <div class="text-break">{{ cell.monitor_email }}</div>
-                                {% if cell.monitor and cell.monitor != cell.monitor_email %}
-                                  <div class="text-muted">{{ cell.monitor }}</div>
-                                {% endif %}
-                              </td>
-                            {% else %}
-                              <td
-                                class="bg-success-subtle border-success horario-cell {% if cell.key in selected_keys %}sgmsc-selected{% endif %}"
-                                data-status="available"
-                                data-key="{{ cell.key }}"
-                                title="Clic para seleccionar/deseleccionar (se crea el horario si no existe)"
-                              ></td>
-                            {% endif %}
-                          {% endfor %}
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              {% else %}
-                <div class="alert alert-warning shadow-sm" role="alert">
-                  La sala seleccionada no tiene horarios definidos.
-                </div>
-              {% endif %}
-            {% else %}
-              <div class="alert alert-info shadow-sm" role="alert">
-                Selecciona una sala y un periodo para cargar la grilla semanal.
-              </div>
-            {% endif %}
+            <div id="grid-container">
+              {% include 'partials/_grid_asignaciones.html' %}
+            </div>
 
             <div class="d-grid mt-4">
               <button class="btn btn-primary btn-lg" type="submit">Crear asignación</button>
@@ -161,9 +113,9 @@
       const salaSelect = document.getElementById("{{ form.sala.id_for_label }}");
       const semestreSelect = document.getElementById("{{ form.semestre.id_for_label }}");
       const monitorSelect = document.getElementById("{{ form.monitor.id_for_label }}");
-      const selectedInput = document.getElementById("selectedHorarios");
+      const gridContainer = document.getElementById("grid-container");
 
-      const buildFilterUrl = () => {
+      const getFilterParams = () => {
         const params = new URLSearchParams();
         const sala = salaSelect?.value || "";
         const semestre = semestreSelect?.value || "";
@@ -171,65 +123,81 @@
         if (sala) params.set("sala_id", sala);
         if (semestre) params.set("semestre", semestre);
         if (monitor) params.set("monitor", monitor);
-        const qs = params.toString();
-        return `${window.location.pathname}${qs ? `?${qs}` : ""}`;
+        return params.toString();
       };
 
-      salaSelect?.addEventListener("change", () => {
-        window.location.assign(buildFilterUrl());
-      });
-      semestreSelect?.addEventListener("change", () => {
-        window.location.assign(buildFilterUrl());
-      });
-
-      const availableCells = Array.from(
-        document.querySelectorAll("td[data-status='available'][data-key]")
-      );
-
-      if (!selectedInput || availableCells.length === 0) return;
-
-      const selected = new Set(
-        (selectedInput.value || "")
-          .split(",")
-          .map((x) => x.trim())
-          .filter(Boolean)
-      );
-
-      const syncSelectedInput = () => {
-        selectedInput.value = Array.from(selected).join(",");
+      const reloadGrid = () => {
+        if (!gridContainer) return;
+        const qs = getFilterParams();
+        const url = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
+        htmx.ajax("GET", url, {
+          target: "#grid-container",
+          swap: "innerHTML",
+          values: {}
+        });
+        window.history.replaceState({}, "", url);
       };
 
-      const clearSelections = () => {
+      salaSelect?.addEventListener("change", reloadGrid);
+      semestreSelect?.addEventListener("change", reloadGrid);
+      monitorSelect?.addEventListener("change", reloadGrid);
+
+      // Re-inicializar selección de celdas después de cada swap HTMX
+      const initGridSelection = () => {
+        const selectedInput = document.getElementById("selectedHorarios");
+        const container = document.getElementById("grid-container");
+        if (!container || !selectedInput) return;
+
+        const availableCells = Array.from(
+          container.querySelectorAll("td[data-status='available'][data-key]")
+        );
+        if (availableCells.length === 0) return;
+
+        const selected = new Set(
+          (selectedInput.value || "")
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean)
+        );
+
+        const syncSelectedInput = () => {
+          selectedInput.value = Array.from(selected).join(",");
+        };
+
+        // Limpiar selecciones al cambiar monitor
         selected.clear();
         syncSelectedInput();
+
         availableCells.forEach((cell) => {
-          cell.classList.remove("sgmsc-selected");
+          const key = (cell.dataset.key || "").trim();
+          if (key && selected.has(key)) {
+            cell.classList.add("sgmsc-selected");
+          }
+        });
+
+        availableCells.forEach((cell) => {
+          cell.addEventListener("click", () => {
+            const key = (cell.dataset.key || "").trim();
+            if (!key) return;
+
+            if (selected.has(key)) {
+              selected.delete(key);
+              cell.classList.remove("sgmsc-selected");
+            } else {
+              selected.add(key);
+              cell.classList.add("sgmsc-selected");
+            }
+            syncSelectedInput();
+          });
         });
       };
 
-      monitorSelect?.addEventListener("change", clearSelections);
+      initGridSelection();
 
-      availableCells.forEach((cell) => {
-        const key = (cell.dataset.key || "").trim();
-        if (key && selected.has(key)) {
-          cell.classList.add("sgmsc-selected");
+      document.body.addEventListener("htmx:afterSwap", (evt) => {
+        if (evt.detail.target && evt.detail.target.id === "grid-container") {
+          initGridSelection();
         }
-      });
-
-      availableCells.forEach((cell) => {
-        cell.addEventListener("click", () => {
-          const key = (cell.dataset.key || "").trim();
-          if (!key) return;
-
-          if (selected.has(key)) {
-            selected.delete(key);
-            cell.classList.remove("sgmsc-selected");
-          } else {
-            selected.add(key);
-            cell.classList.add("sgmsc-selected");
-          }
-          syncSelectedInput();
-        });
       });
     })();
   </script>

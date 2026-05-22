@@ -1,0 +1,22 @@
+<div
+  x-data="{ open: false, title: '' }"
+  @abrir-modal.window="open = true; title = $event.detail.title"
+  @cerrar-modal.window="open = false"
+>
+  <template x-teleport="body">
+    <div x-show="open" style="display: none;" x-cloak>
+      <div class="modal-backdrop fade show" @click="open = false"></div>
+      <div class="modal fade show d-block" tabindex="-1" @click.self="open = false">
+        <div class="modal-dialog modal-dialog-centered modal-{{ size|default:'md' }}">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" x-text="title"></h5>
+              <button @click="open = false" class="btn-close" type="button"></button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>

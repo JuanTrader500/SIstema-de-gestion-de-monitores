@@ -2,7 +2,7 @@ from functools import wraps
 import json
 
 from django.contrib import messages
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core.mail import send_mail
@@ -46,7 +46,10 @@ def login_view(request):
         if user is not None:
             login(request, user)
             return redirect('post_login_router')
-        return render(request, 'usuarios/login.html', {'error': 'Credenciales invalidas.'})
+        return render(request, 'usuarios/login.html', {
+            'error': 'Credenciales inválidas.',
+            'email': email,
+        })
 
     return render(request, 'usuarios/login.html')
 
@@ -108,8 +111,15 @@ def crear_monitor_view(request):
 
 @admin_required
 def admin_dashboard(request):
+    from horarios.models import Horario
+    from salas.models import Sala
+    from asignaciones.models import Asignacion
     context = {
         'admin_username': request.user.username,
+        'total_salas': Sala.objects.count(),
+        'total_horarios': Horario.objects.count(),
+        'total_monitores': Usuario.objects.filter(rol=Usuario.MONITOR).count(),
+        'total_asignaciones': Asignacion.objects.count(),
     }
     return render(request, 'usuarios/admin_dashboard.html', context)
 
@@ -161,3 +171,8 @@ def ai_chat_api(request):
             {'error': f'Error: {str(e)}'}, 
             status=500
         )
+
+@require_http_methods(["POST"])
+def logout_view(request):
+    logout(request)
+    return redirect("login")

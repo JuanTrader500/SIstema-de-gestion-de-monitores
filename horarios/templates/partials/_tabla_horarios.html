@@ -1,0 +1,66 @@
+{% if horarios %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" id="tabla-horarios">
+    <thead class="table-light">
+      <tr>
+        <th scope="col">Sala</th>
+        <th scope="col">Día</th>
+        <th scope="col">Inicio</th>
+        <th scope="col">Fin</th>
+        <th scope="col" class="text-end">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for horario in horarios %}
+      <tr>
+        <td>{{ horario.sala.codigo }}</td>
+        <td>{{ horario.get_dia_semana_display }}</td>
+        <td>{{ horario.hora_inicio|time:"H:i" }}</td>
+        <td>{{ horario.hora_fin|time:"H:i" }}</td>
+        <td class="text-end">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary me-1"
+            hx-get="{% url 'horarios:editar-horario' horario.id_horario %}"
+            hx-target="#modal-body"
+            hx-on::after-request="window.dispatchEvent(new CustomEvent('abrir-modal', {detail: {title: 'Editar horario'}}))" title="Editar"
+          >
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            hx-post="{% url 'horarios:eliminar-horario' horario.id_horario %}"
+            hx-confirm="¿Estás seguro de eliminar el horario de {{ horario.sala.codigo }} los {{ horario.get_dia_semana_display }}?"
+            title="Eliminar"
+          >
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="text-center text-muted py-4">
+          <i class="bi bi-clock fs-4 d-block mb-2"></i>
+          No hay horarios registrados.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-clock fs-1 d-block mb-3"></i>
+  <p class="mb-0">No hay horarios registrados.</p>
+  <button
+    type="button"
+    class="btn btn-primary mt-3"
+    hx-get="{% url 'horarios:crear-horario' %}"
+    hx-target="#modal-body"
+    hx-on::after-request="window.dispatchEvent(new CustomEvent('abrir-modal', {detail: {title: 'Nuevo horario'}}))"
+  >
+    <i class="bi bi-plus-lg"></i> Crear primer horario
+  </button>
+</div>
+{% endif %}

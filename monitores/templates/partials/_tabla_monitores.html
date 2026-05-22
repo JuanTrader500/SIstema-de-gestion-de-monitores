@@ -1,0 +1,66 @@
+{% if monitores %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" id="tabla-monitores">
+    <thead class="table-light">
+      <tr>
+        <th scope="col">Nombre</th>
+        <th scope="col">Email</th>
+        <th scope="col">Cédula</th>
+        <th scope="col">Teléfono</th>
+        <th scope="col" class="text-end">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in monitores %}
+      <tr>
+        <td>{{ m.get_full_name }}</td>
+        <td>{{ m.email }}</td>
+        <td>{{ m.cedula }}</td>
+        <td>{{ m.telefono|default:"—" }}</td>
+        <td class="text-end">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary me-1"
+            hx-get="{% url 'monitores:editar' m.id %}"
+            hx-target="#modal-body"
+            hx-on::after-request="window.dispatchEvent(new CustomEvent('abrir-modal', {detail: {title: 'Editar monitor'}}))" title="Editar"
+          >
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            hx-post="{% url 'monitores:eliminar' m.id %}"
+            hx-confirm="¿Estás seguro de eliminar a «{{ m.get_full_name }}»?"
+            title="Eliminar"
+          >
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="text-center text-muted py-4">
+          <i class="bi bi-people fs-4 d-block mb-2"></i>
+          No hay monitores registrados.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-people fs-1 d-block mb-3"></i>
+  <p class="mb-0">No hay monitores registrados.</p>
+  <button
+    type="button"
+    class="btn btn-primary mt-3"
+    hx-get="{% url 'monitores:crear' %}"
+    hx-target="#modal-body"
+    hx-on::after-request="window.dispatchEvent(new CustomEvent('abrir-modal', {detail: {title: 'Nuevo monitor'}}))"
+  >
+    <i class="bi bi-person-plus"></i> Crear primer monitor
+  </button>
+</div>
+{% endif %}

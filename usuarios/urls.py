@@ -10,6 +10,7 @@ urlpatterns = [
 	path('monitor/', views.monitor_dashboard, name='monitor_dashboard'),
 	path('monitores/crear/', views.crear_monitor_view, name='crear_monitor'),
 	path('api/chat/', views.ai_chat_api, name='ai_chat_api'),
+	path('logout/', views.logout_view, name='logout'),
 	path(
 		'set-password/done/',
 		auth_views.PasswordResetDoneView.as_view(
