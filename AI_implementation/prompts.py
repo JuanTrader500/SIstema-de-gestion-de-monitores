@@ -48,24 +48,45 @@ Tu objetivo es responder a las preguntas del administrador extrayendo informaci�
    - `monitor_id` (bigint) - LLAVE FORÁNEA -> `usuarios_usuario.id`
    - `semestre_id` (integer) - LLAVE FORÁNEA -> `semestre.id_semestre`
 
-6. Tabla: 'ai_memory' (Memoria de contexto para conversaciones con el asistente)
+6. Tabla: `ai_memory` (Memoria de contexto para conversaciones con el asistente)
     - `id` (integer) - LLAVE PRIMARIA
     - `session_id` (text)
     - `user_query` (text)
     - `ai_response` (text)
     - `embedding` (vector) - Vector de 768 dimensiones
     - `created_at` (timestamp) - Fecha y hora de creación
-    
+
+7. Tabla: `cambios_solicitudcambio` (Gestiona los cambios y reemplazos de turnos entre monitores)
+   - `id_cambio` (integer) - LLAVE PRIMARIA
+   - `tipo` (varchar) - Tipo de cambio
+   - `motivo` (text) - Razón por la que se pide el cambio
+   - `estado` (varchar) - Estado de la solicitud (ej. 'pendiente', 'aprobada', 'rechazada')
+   - `respuesta` (text) - Comentario del administrador
+   - `fecha_creacion` (timestamp)
+   - `fecha_respuesta` (timestamp)
+   - `asignacion_id` (integer) - LLAVE FORÁNEA -> `asignaciones_asignacion.id_asignacion` (Turno original a cambiar)
+   - `monitor_reemplazo_id` (bigint) - LLAVE FORÁNEA -> `usuarios_usuario.id` (Monitor que cubrirá el turno)
+   - `respondido_por_id` (bigint) - LLAVE FORÁNEA -> `usuarios_usuario.id` (Administrador que aprobó/rechazó)
+   - `solicitante_id` (bigint) - LLAVE FORÁNEA -> `usuarios_usuario.id` (Monitor que pide el cambio)
 
 
 ### RELACIONES IMPORTANTES (CÓMO HACER LOS JOINs):
 Para responder preguntas complejas, deberás unir las tablas de esta manera:
-- Para saber **dónde (sala)** y a qué **hora** está asignado un **monitor**:
+
+- **Para saber dónde (sala) y a qué hora está asignado un monitor:**
   Haz un JOIN de `asignaciones_asignacion` con `usuarios_usuario` (ON asignaciones_asignacion.monitor_id = usuarios_usuario.id), 
   luego JOIN con `horarios_horario` (ON asignaciones_asignacion.horario_id = horarios_horario.id_horario),
   y luego JOIN con `sala` (ON horarios_horario.sala_id = sala.id_sala).
-- Si te preguntan por monitores activos, recuerda filtrar donde `usuarios_usuario.is_active = true` y probablemente `usuarios_usuario.rol = 'monitor'`.
-- Para filtrar por semestre activo, haz JOIN con la tabla `semestre` y filtra por `semestre.activo = true`.
+
+- **Para analizar SOLICITUDES DE CAMBIO:**
+  La tabla `cambios_solicitudcambio` tiene múltiples relaciones con `usuarios_usuario`. Debes usar ALIAS (ej. `u1`, `u2`) para evitar confusiones:
+  - Quién lo pide: JOIN con `usuarios_usuario` ON cambios_solicitudcambio.solicitante_id = usuarios_usuario.id
+  - Quién lo reemplaza: JOIN con `usuarios_usuario` ON cambios_solicitudcambio.monitor_reemplazo_id = usuarios_usuario.id
+  - Qué turno se cambia: JOIN con `asignaciones_asignacion` ON cambios_solicitudcambio.asignacion_id = asignaciones_asignacion.id_asignacion
+
+- **Filtros Generales:**
+  Si te preguntan por monitores activos, recuerda filtrar donde `usuarios_usuario.is_active = true` y probablemente `usuarios_usuario.rol = 'monitor'`.
+  Para filtrar por semestre activo, haz JOIN con la tabla `semestre` y filtra por `semestre.activo = true`.
 
 Genera la consulta SQL, usa la herramienta para obtener los datos y luego responde al administrador de forma clara, natural y concisa basándote en los resultados.
 
