@@ -5,8 +5,10 @@ from datetime import datetime, time
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 
 from horarios.models import Horario
+from usuarios.models import Usuario
 
 from .models import Asignacion
 
@@ -167,6 +169,30 @@ def crear_asignaciones(*, monitor, semestre, sala_id: int, seleccion_tokens: lis
 			if ocupados:
 				raise ValidationError(
 					"Algunos bloques ya están ocupados para ese periodo. Recarga la grilla y vuelve a intentar."
+				)
+
+			# Bloquear fila del monitor para serializar acceso por monitor+semestre.
+			list(Usuario.objects.filter(pk=monitor.pk).select_for_update())
+
+			# Validar que el monitor no tenga asignaciones en otras salas
+			# que se crucen con los horarios seleccionados (única query).
+			condition = Q()
+			for h in horarios_final.values():
+				condition |= Q(
+					horario__dia_semana=h.dia_semana,
+					horario__hora_inicio__lt=h.hora_fin,
+					horario__hora_fin__gt=h.hora_inicio,
+				)
+			conflicto = Asignacion.objects.filter(
+				monitor=monitor,
+				semestre=semestre,
+			).exclude(
+				horario_id__in=horario_ids,
+			).filter(condition).exists()
+			if conflicto:
+				raise ValidationError(
+					"El monitor ya tiene asignaciones en otro(s) bloque(s) que se cruzan "
+					"con los horarios seleccionados en otra sala."
 				)
 
 			creadas = 0

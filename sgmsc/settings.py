@@ -15,6 +15,7 @@ from decouple import config
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -55,6 +56,8 @@ INSTALLED_APPS = [
 ]
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
+LOGIN_URL = 'login'
+PASSWORD_RESET_TIMEOUT = 3600 # 1 hora en segundos para el token de restablecimiento de contraseña
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -123,6 +126,21 @@ EMAIL_JEFE_DEPARTAMENTO = os.getenv("EMAIL_JEFE_DEPARTAMENTO")
 #ESTA LÍNEA (Le dice a Django cuál es el remitente por defecto)
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+# Dominio seguro para enlaces en correos (mitiga Host Header Injection).
+# SITE_URL es la única fuente de verdad; SITE_PROTOCOL/SITE_DOMAIN se derivan.
+_raw_site_url = os.getenv("SITE_URL", "http://localhost:8000").strip().rstrip("/")
+_parsed_site_url = urlparse(
+    _raw_site_url if "://" in _raw_site_url else f"http://{_raw_site_url}"
+)
+if _parsed_site_url.scheme and _parsed_site_url.hostname:
+    SITE_PROTOCOL = _parsed_site_url.scheme
+    SITE_DOMAIN = _parsed_site_url.netloc
+    SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
+else:
+    SITE_PROTOCOL = "http"
+    SITE_DOMAIN = "localhost:8000"
+    SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
+
 
 # --- TEMPORALMENTE PARA PROBAR ---
 print(f"DEBUG: El correo cargado es: {EMAIL_HOST_USER}")
@@ -168,4 +186,3 @@ STATIC_URL = 'static/'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-SITE_URL = os.getenv('SITE_URL', 'http://localhost:8000')

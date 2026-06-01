@@ -2,6 +2,29 @@
 
 {% block title %}Iniciar sesión | SGM SC{% endblock %}
 
+{% block extra_head %}
+  <style>
+    .password-toggle {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: #6c757d;
+      padding: 4px 8px;
+      z-index: 5;
+    }
+    .password-toggle:hover {
+      color: #004a99;
+    }
+    .password-wrapper {
+      position: relative;
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
   <div class="d-flex align-items-center justify-content-center" style="min-height: 70vh;">
     <div class="w-100" style="max-width: 400px;">
@@ -31,7 +54,7 @@
 
             <div class="mb-3">
               <label class="form-label" for="password">Contraseña</label>
-              <div class="input-group">
+              <div class="password-wrapper">
                 <input
                   id="password"
                   name="password"
@@ -40,18 +63,16 @@
                   autocomplete="current-password"
                   required
                 />
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  onclick="togglePassword()"
-                  id="toggleBtn"
-                >
-                  <i class="bi bi-eye" id="toggleIcon"></i>
+                <button type="button" class="password-toggle" id="togglePassword" aria-label="Mostrar contraseña">
+                  <i class="bi bi-eye-slash fs-5"></i>
                 </button>
               </div>
             </div>
 
             <button class="btn btn-primary w-100 py-2" type="submit">Entrar</button>
+            <div class="text-center mt-3">
+              <small><a href="{% url 'password_reset' %}" class="text-decoration-none">¿Olvidaste tu contraseña?</a></small>
+            </div>
           </form>
         </div>
       </div>
@@ -60,17 +81,17 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-function togglePassword() {
-  const input = document.getElementById('password')
-  const icon = document.getElementById('toggleIcon')
-  if (input.type === 'password') {
-    input.type = 'text'
-    icon.className = 'bi bi-eye-slash'
-  } else {
-    input.type = 'password'
-    icon.className = 'bi bi-eye'
-  }
-}
-</script>
+  <script>
+    (() => {
+      const toggle = document.getElementById('togglePassword');
+      const input = document.getElementById('password');
+      if (!toggle || !input) return;
+      toggle.addEventListener('click', () => {
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        toggle.querySelector('i').className = isPassword ? 'bi bi-eye fs-5' : 'bi bi-eye-slash fs-5';
+        toggle.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
+      });
+    })();
+  </script>
 {% endblock %}

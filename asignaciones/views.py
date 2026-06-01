@@ -52,6 +52,12 @@ def crear_asignacion_view(request):
 	if selected_semestre_id:
 		selected_semestre = Semestre.objects.filter(pk=selected_semestre_id).first()
 
+	selected_monitor = None
+	if selected_monitor_email:
+		selected_monitor = Usuario.objects.filter(
+			email=selected_monitor_email, rol=Usuario.MONITOR
+		).first()
+
 	if request.method == "POST":
 		form = CrearAsignacionesForm(
 			request.POST,
@@ -215,6 +221,7 @@ def crear_asignacion_view(request):
 				if overlap:
 					row["cells"].append({"status": "none"})
 				else:
+					# Verificar si el monitor seleccionado ya tiene turno a esta hora
 					is_monitor_busy = any(
 						s < fin and e > inicio
 						for s, e in monitor_by_day.get(dia_value, [])
