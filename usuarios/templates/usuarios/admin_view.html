@@ -1,47 +1,93 @@
 {% extends 'base.html' %}
 
-{#
-  admin_view.html — Panel del Administrador (UI moderna).
-  - Extiende base.html para heredar navbar/footer/paleta/Bootstrap.
-  - Los mensajes (messages) ya se renderizan arriba desde base.html con alertas Bootstrap.
-  - Acciones principales agrupadas y con botón destacado.
-  - Chat IA en sidebar derecho.
-#}
-
 {% block title %}Panel de Administración | SGM SC{% endblock %}
 
 {% block content %}
-  <div class="row g-4">
-    {# Columna izquierda: Acciones principales #}
-    <div class="col-12 col-lg-8">
-      <div class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3 mb-4">
-        <div>
-          <h1 class="display-6 fw-semibold text-sgmsc mb-1">Panel de Administración</h1>
-          <p class="text-muted mb-0">Gestiona las acciones principales del sistema.</p>
+<div class="row g-4">
+  <div class="col-12">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h1 class="h3 fw-semibold text-sgmsc mb-0">Panel de Administración</h1>
+      <span class="text-muted small">{{ request.user.email }}</span>
+    </div>
+    <p class="text-muted mb-0">Gestiona las acciones principales del sistema.</p>
+  </div>
+
+  <div class="col-12">
+    <div class="row g-3">
+      <div class="col-sm-6 col-xl-3">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-body text-center p-4">
+            <div class="display-6 text-sgmsc mb-2">{{ total_salas }}</div>
+            <h6 class="card-title mb-0">Salas</h6>
+            <p class="text-muted small mt-1 mb-0">Laboratorios registrados</p>
+            <a href="{% url 'salas:listar' %}" class="stretched-link"></a>
+          </div>
         </div>
       </div>
-
-      {# Sección: Acciones Principales #}
-      <div class="card shadow-sm border-0">
-        <div class="card-body p-4 p-md-5">
-          <h2 class="h5 fw-semibold mb-3">Acciones principales</h2>
-          <p class="text-muted mb-4">Selecciona una acción para continuar.</p>
-
-          <div class="d-grid gap-2 d-sm-flex">
-            <a class="btn btn-primary btn-lg" href="{% url 'crear_monitor' %}">Crear Monitor</a>
-            <a class="btn btn-outline-primary btn-lg" href="{% url 'crear_asignacion' %}">Crear nueva asignación</a>
-            <a class="btn btn-outline-primary btn-lg" href="{% url 'lista_solicitudes' %}">Solicitudes de cambio</a>
+      <div class="col-sm-6 col-xl-3">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-body text-center p-4">
+            <div class="display-6 text-sgmsc mb-2">{{ total_horarios }}</div>
+            <h6 class="card-title mb-0">Horarios</h6>
+            <p class="text-muted small mt-1 mb-0">Bloques disponibles</p>
+            <a href="{% url 'horarios:listar' %}" class="stretched-link"></a>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-body text-center p-4">
+            <div class="display-6 text-sgmsc mb-2">{{ total_monitores }}</div>
+            <h6 class="card-title mb-0">Monitores</h6>
+            <p class="text-muted small mt-1 mb-0">Usuarios registrados</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-body text-center p-4">
+            <div class="display-6 text-sgmsc mb-2">{{ total_asignaciones }}</div>
+            <h6 class="card-title mb-0">Asignaciones</h6>
+            <p class="text-muted small mt-1 mb-0">Vigentes este semestre</p>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
-    {# Columna derecha: Chat Panel #}
-    <div class="col-12 col-lg-4">
-      <form style="display: none;" aria-hidden="true">
-        {% csrf_token %}
-      </form>
-      {% include 'usuarios/partials/chat_panel.html' %}
+  <div class="col-12 col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <h5 class="fw-semibold mb-3">Acciones rápidas</h5>
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <a class="btn btn-primary w-100 py-3" href="{% url 'monitores:listar' %}">
+              <i class="bi bi-person-plus me-2"></i>Gestionar monitores
+            </a>
+          </div>
+          <div class="col-sm-6">
+            <a class="btn btn-outline-primary w-100 py-3" href="{% url 'crear_asignacion' %}">
+              <i class="bi bi-calendar-plus me-2"></i>Nueva asignación
+            </a>
+          </div>
+          <div class="col-sm-6">
+            <a class="btn btn-outline-primary w-100 py-3" href="{% url 'lista_solicitudes' %}">
+              <i class="bi bi-arrow-left-right me-2"></i>Solicitudes de cambio
+            </a>
+          </div>
+          <div class="col-sm-6">
+            <a class="btn btn-outline-primary w-100 py-3" href="{% url 'salas:listar' %}">
+              <i class="bi bi-building me-2"></i>Gestionar salas
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
+  <div class="col-12 col-lg-4">
+    <form style="display: none;" aria-hidden="true">{% csrf_token %}</form>
+    {% include 'usuarios/partials/chat_panel.html' %}
+  </div>
+</div>
 {% endblock %}

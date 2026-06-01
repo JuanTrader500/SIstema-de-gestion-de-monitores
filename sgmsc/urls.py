@@ -27,6 +27,9 @@ urlpatterns = [
     path('salas/', include('salas.urls')),
     path('asignaciones/', include('asignaciones.urls')),
     path('cambios/', include('cambios.urls')),
+    path('horarios/', include('horarios.urls')),
+    path('monitores/', include('monitores.urls')),
+    path('semestres/', include('semestres.urls')),
 ]
 
 if settings.DEBUG:

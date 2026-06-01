@@ -21,7 +21,6 @@ def _fmt_hora(hora) -> str:
 
 
 def _validation_error_to_text(exc: ValidationError) -> str:
-	# Normaliza ValidationError (message_dict / messages) a un texto para mostrar.
 	if hasattr(exc, "message_dict") and exc.message_dict:
 		msgs: list[str] = []
 		for _field, field_msgs in exc.message_dict.items():
@@ -102,6 +101,23 @@ def crear_asignacion_view(request):
 			semestre_queryset=semestres_qs,
 		)
 
+	selected_monitor = None
+	if selected_monitor_email:
+		selected_monitor = Usuario.objects.filter(
+			email=selected_monitor_email, rol=Usuario.MONITOR
+		).first()
+
+	# Asignaciones del monitor seleccionado en cualquier sala (para monitor_busy)
+	monitor_by_day: dict[int, list[tuple[time, time]]] = {}
+	if selected_monitor is not None and selected_semestre is not None:
+		for a in Asignacion.objects.filter(
+			monitor=selected_monitor,
+			semestre=selected_semestre,
+		).select_related("horario").iterator():
+			monitor_by_day.setdefault(a.horario.dia_semana, []).append(
+				(a.horario.hora_inicio, a.horario.hora_fin)
+			)
+
 	# Construcción de grilla para la sala/semestre seleccionados
 	dias = list(getattr(Horario, "DIAS", []))
 	grid_rows = []
@@ -112,18 +128,6 @@ def crear_asignacion_view(request):
 	if request.method == "POST":
 		raw_selected = request.POST.get("horarios") or ""
 		selected_keys_set = {x.strip() for x in raw_selected.split(",") if x.strip()}
-
-	# Asignaciones existentes del monitor seleccionado (en cualquier sala),
-	# indexadas por día para búsqueda O(1) por día.
-	monitor_by_day: dict[int, list[tuple[time, time]]] = {}
-	if selected_monitor is not None and selected_semestre is not None:
-		for a in Asignacion.objects.filter(
-			monitor=selected_monitor,
-			semestre=selected_semestre,
-		).select_related("horario").iterator():
-			monitor_by_day.setdefault(a.horario.dia_semana, []).append(
-				(a.horario.hora_inicio, a.horario.hora_fin)
-			)
 
 	if selected_sala is not None and selected_semestre is not None:
 		horarios_sala = list(
@@ -186,28 +190,27 @@ def crear_asignacion_view(request):
 								"monitor_email": asignacion.monitor.email,
 							}
 						)
-					else:
-						# Verificar si el monitor seleccionado ya tiene turno a esta hora
-						is_monitor_busy = any(
-							s < fin and e > inicio
-							for s, e in monitor_by_day.get(dia_value, [])
+				else:
+					is_monitor_busy = any(
+						s < fin and e > inicio
+						for s, e in monitor_by_day.get(dia_value, [])
+					)
+					if is_monitor_busy:
+						row["cells"].append(
+							{
+								"status": "monitor_busy",
+								"key": f"h:{horario.id_horario}",
+								"horario_id": horario.id_horario,
+							}
 						)
-						if is_monitor_busy:
-							row["cells"].append(
-								{
-									"status": "monitor_busy",
-									"key": f"h:{horario.id_horario}",
-									"horario_id": horario.id_horario,
-								}
-							)
-						else:
-							row["cells"].append(
-								{
-									"status": "available",
-									"key": f"h:{horario.id_horario}",
-									"horario_id": horario.id_horario,
-								}
-							)
+					else:
+						row["cells"].append(
+							{
+								"status": "available",
+								"key": f"h:{horario.id_horario}",
+								"horario_id": horario.id_horario,
+							}
+						)
 					continue
 
 				# No existe horario exacto: permitir crear si no se cruza con uno existente.
@@ -247,6 +250,8 @@ def crear_asignacion_view(request):
 		"dias": dias,
 		"grid_rows": grid_rows,
 		"selected_keys": selected_keys_set,
-		"admin_username": request.user.username,
 	}
+
+	if request.htmx:
+		return render(request, "partials/_grid_asignaciones.html", context)
 	return render(request, "asignaciones/crear_asignacion.html", context)

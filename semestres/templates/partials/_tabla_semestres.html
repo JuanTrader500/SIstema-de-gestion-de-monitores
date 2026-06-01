@@ -1,0 +1,70 @@
+{% if semestres %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" id="tabla-semestres">
+    <thead class="table-light">
+      <tr>
+        <th scope="col">Año</th>
+        <th scope="col">Periodo</th>
+        <th scope="col">Estado</th>
+        <th scope="col" class="text-end">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in semestres %}
+      <tr>
+        <td>{{ s.anio }}</td>
+        <td>{{ s.get_periodo_display }}</td>
+        <td>
+          {% if s.activo %}
+            <span class="badge bg-success">Activo</span>
+          {% else %}
+            <span class="badge bg-secondary">Inactivo</span>
+          {% endif %}
+        </td>
+        <td class="text-end">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary me-1"
+            hx-get="{% url 'semestres:editar' s.id_semestre %}"
+            hx-target="#modal-body"
+            hx-on::after-request="window.dispatchEvent(new CustomEvent('abrir-modal', {detail: {title: 'Editar semestre'}}))" title="Editar"
+          >
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            hx-post="{% url 'semestres:eliminar' s.id_semestre %}"
+            hx-confirm="¿Estás seguro de eliminar el semestre {{ s.anio }}-{{ s.periodo }}?"
+            title="Eliminar"
+          >
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="text-center text-muted py-4">
+          <i class="bi bi-calendar3 fs-4 d-block mb-2"></i>
+          No hay semestres registrados.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-calendar3 fs-1 d-block mb-3"></i>
+  <p class="mb-0">No hay semestres registrados.</p>
+  <button
+    type="button"
+    class="btn btn-primary mt-3"
+    hx-get="{% url 'semestres:crear' %}"
+    hx-target="#modal-body"
+    hx-on::after-request="window.dispatchEvent(new CustomEvent('abrir-modal', {detail: {title: 'Nuevo semestre'}}))"
+  >
+    <i class="bi bi-plus-lg"></i> Crear primer semestre
+  </button>
+</div>
+{% endif %}

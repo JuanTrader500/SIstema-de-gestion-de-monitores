@@ -1,103 +1,84 @@
-import json
-
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from . import services
+from usuarios.views import admin_required
+
+from .forms import SalaForm
+from .models import Sala
+from .services import actualizar_sala, crear_sala, eliminar_sala
 
 
-def _sala_a_dict(sala) -> dict:
-    return {
-        "id_sala": sala.id_sala,
-        "codigo": sala.codigo,
-        "nombre": sala.nombre,
-        "capacidad": sala.capacidad,
-    }
-
-
-@require_http_methods(["GET"])
+@admin_required
 def listar_salas(request):
-    salas = services.listar_salas()
-    return JsonResponse({"salas": [_sala_a_dict(s) for s in salas]})
+    salas = Sala.objects.all()
+    if request.htmx and request.htmx.target:
+        return render(request, "partials/_tabla_salas.html", {"salas": salas})
+    return render(request, "salas/listar.html", {"salas": salas})
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def crear_sala(request):
-    try:
-        datos = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "El cuerpo de la solicitud no es JSON válido."}, status=400)
-
-    try:
-        sala = services.crear_sala(
-            codigo=datos.get("codigo", ""),
-            nombre=datos.get("nombre", ""),
-            capacidad=datos.get("capacidad", 0),
-        )
-        return JsonResponse(_sala_a_dict(sala), status=201)
-    except ValidationError as e:
-        return JsonResponse({"error": e.message}, status=400)
-
-
-@require_http_methods(["GET"])
-def obtener_sala(request, id_sala):
-    try:
-        sala = services.obtener_sala(id_sala)
-        return JsonResponse(_sala_a_dict(sala))
-    except Exception:
-        return JsonResponse({"error": "Sala no encontrada."}, status=404)
-
-
-@csrf_exempt
+@admin_required
 @require_http_methods(["GET", "POST"])
-def salas(request):
-    if request.method == "GET":
-        salas = services.listar_salas()
-        return JsonResponse({"salas": [_sala_a_dict(s) for s in salas]})
-
-    datos = json.loads(request.body)
-    try:
-        sala = services.crear_sala(
-            codigo=datos.get("codigo", ""),
-            nombre=datos.get("nombre", ""),
-            capacidad=datos.get("capacidad", 0),
-        )
-        return JsonResponse(_sala_a_dict(sala), status=201)
-    except ValidationError as e:
-        return JsonResponse({"error": e.message}, status=400)
-
-
-@csrf_exempt
-@require_http_methods(["GET", "PATCH", "DELETE"])
-def sala_detalle(request, id_sala):
-    if request.method == "GET":
-        try:
-            sala = services.obtener_sala(id_sala)
-            return JsonResponse(_sala_a_dict(sala))
-        except Exception:
-            return JsonResponse({"error": "Sala no encontrada."}, status=404)
-
-    if request.method == "PATCH":
-        try:
-            datos = json.loads(request.body)
-            sala = services.actualizar_sala(
-                id_sala=id_sala,
-                codigo=datos.get("codigo"),
-                nombre=datos.get("nombre"),
-                capacidad=datos.get("capacidad"),
+def crear_sala(request):
+    if request.method == "POST":
+        form = SalaForm(data=request.POST)
+        if form.is_valid():
+            crear_sala(
+                codigo=form.cleaned_data["codigo"],
+                nombre=form.cleaned_data["nombre"],
+                capacidad=form.cleaned_data["capacidad"],
             )
-            return JsonResponse(_sala_a_dict(sala))
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
+            response = HttpResponse()
+            response["HX-Trigger"] = (
+                '{"show-toast":{"type":"success","message":"Sala creada correctamente."}}'
+            )
+            response["HX-Location"] = reverse("salas:listar")
+            return response
+        return render(request, "partials/_form_sala.html", {"form": form})
+    form = SalaForm()
+    return render(request, "partials/_form_sala.html", {"form": form})
 
-    if request.method == "DELETE":
-        try:
-            services.eliminar_sala(id_sala)
-            return JsonResponse({"mensaje": "Sala eliminada correctamente."})
-        except ObjectDoesNotExist:
-            return JsonResponse({"error": "Sala no encontrada."}, status=404)
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def editar_sala(request, id_sala):
+    sala = get_object_or_404(Sala, pk=id_sala)
+    if request.method == "POST":
+        form = SalaForm(data=request.POST, sala_id=id_sala)
+        if form.is_valid():
+            actualizar_sala(
+                id_sala=id_sala,
+                codigo=form.cleaned_data["codigo"],
+                nombre=form.cleaned_data["nombre"],
+                capacidad=form.cleaned_data["capacidad"],
+            )
+            response = HttpResponse()
+            response["HX-Trigger"] = (
+                '{"show-toast":{"type":"success","message":"Sala actualizada correctamente."}}'
+            )
+            response["HX-Location"] = reverse("salas:listar")
+            return response
+        return render(request, "partials/_form_sala.html", {"form": form})
+    form = SalaForm(
+        initial={
+            "codigo": sala.codigo,
+            "nombre": sala.nombre,
+            "capacidad": sala.capacidad,
+        },
+        sala_id=id_sala,
+    )
+    return render(request, "partials/_form_sala.html", {"form": form})
+
+
+@admin_required
+@require_http_methods(["POST"])
+def eliminar_sala(request, id_sala):
+    get_object_or_404(Sala, pk=id_sala)
+    eliminar_sala(id_sala=id_sala)
+    response = HttpResponse(status=204)
+    response["HX-Redirect"] = reverse("salas:listar")
+    response["HX-Trigger"] = (
+        '{"show-toast":{"type":"success","message":"Sala eliminada correctamente."}}'
+    )
+    return response

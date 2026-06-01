@@ -47,6 +47,7 @@
                 type="email"
                 class="form-control"
                 autocomplete="username"
+                value="{{ email|default_if_none:'' }}"
                 required
               />
             </div>
