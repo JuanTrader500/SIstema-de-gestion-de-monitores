@@ -35,4 +35,9 @@ def actualizar_semestre(
 
 
 def eliminar_semestre(id_semestre: int) -> None:
+    from asignaciones.models import Asignacion
+    if Asignacion.objects.filter(semestre_id=id_semestre).exists():
+        raise ValidationError(
+            "No se puede eliminar el semestre porque tiene asignaciones activas."
+        )
     Semestre.objects.filter(pk=id_semestre).delete()

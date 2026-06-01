@@ -1,3 +1,7 @@
+import json
+
+from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -26,18 +30,20 @@ def crear_monitor(request):
     if request.method == "POST":
         form = MonitorForm(data=request.POST)
         if form.is_valid():
-            service_crear_monitor(
-                email=form.cleaned_data["email"],
-                cedula=form.cleaned_data["cedula"],
-                first_name=form.cleaned_data["first_name"],
-                last_name=form.cleaned_data["last_name"],
-                telefono=form.cleaned_data.get("telefono", ""),
-            )
+            try:
+                service_crear_monitor(
+                    email=form.cleaned_data["email"],
+                    cedula=form.cleaned_data["cedula"],
+                    first_name=form.cleaned_data["first_name"],
+                    last_name=form.cleaned_data["last_name"],
+                    telefono=form.cleaned_data.get("telefono", ""),
+                )
+            except ValidationError as e:
+                form.add_error(None, str(e))
+                return render(request, "partials/_form_monitor.html", {"form": form})
+            messages.success(request, "Monitor creado correctamente. Se enviaron las credenciales por correo.")
             response = HttpResponse()
-            response["HX-Trigger"] = (
-                '{"show-toast":{"type":"success","message":"Monitor creado correctamente. Se enviaron las credenciales por correo."}}'
-            )
-            response["HX-Location"] = reverse("monitores:listar")
+            response["HX-Redirect"] = reverse("monitores:listar")
             return response
         return render(request, "partials/_form_monitor.html", {"form": form})
     form = MonitorForm()
@@ -51,19 +57,21 @@ def editar_monitor(request, id_monitor):
     if request.method == "POST":
         form = MonitorForm(data=request.POST, monitor_id=id_monitor)
         if form.is_valid():
-            actualizar_monitor(
-                id_monitor=id_monitor,
-                email=form.cleaned_data["email"],
-                cedula=form.cleaned_data["cedula"],
-                first_name=form.cleaned_data["first_name"],
-                last_name=form.cleaned_data["last_name"],
-                telefono=form.cleaned_data.get("telefono", ""),
-            )
+            try:
+                actualizar_monitor(
+                    id_monitor=id_monitor,
+                    email=form.cleaned_data["email"],
+                    cedula=form.cleaned_data["cedula"],
+                    first_name=form.cleaned_data["first_name"],
+                    last_name=form.cleaned_data["last_name"],
+                    telefono=form.cleaned_data.get("telefono", ""),
+                )
+            except ValidationError as e:
+                form.add_error(None, str(e))
+                return render(request, "partials/_form_monitor.html", {"form": form})
+            messages.success(request, "Monitor actualizado correctamente.")
             response = HttpResponse()
-            response["HX-Trigger"] = (
-                '{"show-toast":{"type":"success","message":"Monitor actualizado correctamente."}}'
-            )
-            response["HX-Location"] = reverse("monitores:listar")
+            response["HX-Redirect"] = reverse("monitores:listar")
             return response
         return render(request, "partials/_form_monitor.html", {"form": form})
     form = MonitorForm(
@@ -83,7 +91,14 @@ def editar_monitor(request, id_monitor):
 @require_http_methods(["POST"])
 def eliminar_monitor(request, id_monitor):
     get_object_or_404(Usuario, pk=id_monitor, rol=Usuario.MONITOR)
-    service_eliminar_monitor(id_monitor=id_monitor)
+    try:
+        service_eliminar_monitor(id_monitor=id_monitor)
+    except ValidationError as e:
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({
+            "show-toast": {"type": "error", "message": str(e)}
+        })
+        return response
     response = HttpResponse(status=204)
     response["HX-Redirect"] = reverse("monitores:listar")
     response["HX-Trigger"] = (

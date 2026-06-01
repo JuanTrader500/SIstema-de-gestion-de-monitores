@@ -182,35 +182,36 @@ def crear_asignacion_view(request):
 					asignacion = asignaciones_por_horario.get(horario.id_horario)
 					if asignacion is not None:
 						monitor_name = asignacion.monitor.get_full_name() or asignacion.monitor.email
+						is_own = selected_monitor and asignacion.monitor_id == selected_monitor.pk
 						row["cells"].append(
 							{
-								"status": "occupied",
+								"status": "monitor_busy" if is_own else "occupied",
 								"horario_id": horario.id_horario,
 								"monitor": monitor_name,
 								"monitor_email": asignacion.monitor.email,
 							}
 						)
-				else:
-					is_monitor_busy = any(
-						s < fin and e > inicio
-						for s, e in monitor_by_day.get(dia_value, [])
-					)
-					if is_monitor_busy:
-						row["cells"].append(
-							{
-								"status": "monitor_busy",
-								"key": f"h:{horario.id_horario}",
-								"horario_id": horario.id_horario,
-							}
-						)
 					else:
-						row["cells"].append(
-							{
-								"status": "available",
-								"key": f"h:{horario.id_horario}",
-								"horario_id": horario.id_horario,
-							}
+						is_monitor_busy = any(
+							s < fin and e > inicio
+							for s, e in monitor_by_day.get(dia_value, [])
 						)
+						if is_monitor_busy:
+							row["cells"].append(
+								{
+									"status": "monitor_busy",
+									"key": f"h:{horario.id_horario}",
+									"horario_id": horario.id_horario,
+								}
+							)
+						else:
+							row["cells"].append(
+								{
+									"status": "available",
+									"key": f"h:{horario.id_horario}",
+									"horario_id": horario.id_horario,
+								}
+							)
 					continue
 
 				# No existe horario exacto: permitir crear si no se cruza con uno existente.
@@ -221,7 +222,6 @@ def crear_asignacion_view(request):
 				if overlap:
 					row["cells"].append({"status": "none"})
 				else:
-					# Verificar si el monitor seleccionado ya tiene turno a esta hora
 					is_monitor_busy = any(
 						s < fin and e > inicio
 						for s, e in monitor_by_day.get(dia_value, [])

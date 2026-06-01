@@ -501,7 +501,7 @@
 
     // CSRF Token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
-    const adminUsername = '{{ admin_username }}';
+    const adminUsername = '{{ request.user.username }}';
 
     function getCookie(name) {
       let cookieValue = null;

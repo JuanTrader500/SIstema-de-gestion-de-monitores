@@ -76,4 +76,9 @@ def actualizar_monitor(
 
 
 def eliminar_monitor(id_monitor: int) -> None:
+    from asignaciones.models import Asignacion
+    if Asignacion.objects.filter(monitor_id=id_monitor).exists():
+        raise ValidationError(
+            "No se puede eliminar el monitor porque tiene asignaciones activas."
+        )
     Usuario.objects.filter(pk=id_monitor, rol=Usuario.MONITOR).delete()

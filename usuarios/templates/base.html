@@ -58,16 +58,31 @@
     <div
       x-data="toastManager()"
       x-on:show-toast.window="show($event.detail)"
-      class="toast-container position-fixed bottom-0 end-0 p-3"
-      style="z-index: 9999"
+      class="toast-container position-fixed top-0 end-0 p-3"
+      style="z-index: 9999; margin-top: 70px;"
     >
       <template x-for="(toast, i) in toasts" :key="toast.id">
         <div
           class="toast show align-items-center border-0 mb-2"
-          :class="toast.type === 'success' ? 'text-bg-success' : toast.type === 'danger' ? 'text-bg-danger' : 'text-bg-info'"
+          :class="{
+            'text-bg-success': toast.type === 'success',
+            'text-bg-danger': toast.type === 'error' || toast.type === 'danger',
+            'text-bg-warning': toast.type === 'warning',
+            'text-bg-info': toast.type === 'info',
+          }"
           role="alert"
+          x-show="toast.visible"
+          x-transition.duration.300ms
         >
-          <div class="d-flex">
+          <div class="d-flex align-items-center gap-2 px-1">
+            <i
+              :class="{
+                'bi bi-check-circle-fill fs-5': toast.type === 'success',
+                'bi bi-x-circle-fill fs-5': toast.type === 'error' || toast.type === 'danger',
+                'bi bi-exclamation-triangle-fill fs-5': toast.type === 'warning',
+                'bi bi-info-circle-fill fs-5': toast.type === 'info',
+              }"
+            ></i>
             <div class="toast-body" x-text="toast.message"></div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto"
                     @click="toasts = toasts.filter(t => t.id !== toast.id)"></button>
@@ -106,17 +121,8 @@
     <main class="flex-grow-1" id="main-content">
       <div class="container py-5">
         {% if messages %}
-          <div class="mb-4">
-            {% for message in messages %}
-              {% with level=message.level_tag %}
-                <div class="alert alert-{% if level == 'error' %}danger{% else %}{{ level }}{% endif %} shadow-sm" role="alert">
-                  {{ message }}
-                </div>
-              {% endwith %}
-            {% endfor %}
-          </div>
+          <script id="django-messages-data" type="application/json">[{% for msg in messages %}{"level": "{{ msg.level_tag }}", "message": "{{ msg|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]</script>
         {% endif %}
-
         {% block content %}{% endblock %}
       </div>
     </main>
@@ -128,31 +134,74 @@
       </div>
     </footer>
 
+    {% include 'usuarios/partials/chat_panel.html' %}
+
     <script>
       function toastManager() {
         return {
           toasts: [],
           show(detail) {
             const id = Date.now() + Math.random()
-            this.toasts.push({ ...detail, id })
+            this.toasts.push({ ...detail, id, visible: false })
+            this.$nextTick(() => {
+              const t = this.toasts.find(t => t.id === id)
+              if (t) t.visible = true
+            })
             setTimeout(() => {
-              this.toasts = this.toasts.filter(t => t.id !== id)
-            }, 4000)
+              const t = this.toasts.find(t => t.id === id)
+              if (t) t.visible = false
+              setTimeout(() => {
+                this.toasts = this.toasts.filter(t => t.id !== id)
+              }, 300)
+            }, detail.duration || 4500)
           }
         }
       }
 
-      // CSRF token para HTMX desde el DOM (funciona incluso sin cookie)
-      document.body.addEventListener('htmx:configRequest', function(e) {
-        const input = document.querySelector('[name=csrfmiddlewaretoken]')
-        const token = input ? input.value : ''
+      function procesarMensajesDjango() {
+        var el = document.getElementById('django-messages-data')
+        if (!el) return
+        try {
+          var msgs = JSON.parse(el.textContent)
+          msgs.forEach(function (m) {
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: { type: m.level, message: m.message }
+            }))
+          })
+        } catch (e) {}
+      }
+
+      function mostrarToastPendiente() {
+        var data = sessionStorage.getItem('sgm_toast')
+        if (!data) return
+        sessionStorage.removeItem('sgm_toast')
+        try {
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: JSON.parse(data)
+          }))
+        } catch (e) {}
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        mostrarToastPendiente()
+        procesarMensajesDjango()
+      })
+      document.addEventListener('htmx:load', function () {
+        mostrarToastPendiente()
+        procesarMensajesDjango()
+      })
+
+      // CSRF token para HTMX desde el DOM
+      document.body.addEventListener('htmx:configRequest', function (e) {
+        var input = document.querySelector('[name=csrfmiddlewaretoken]')
+        var token = input ? input.value : ''
         if (token) {
           e.detail.headers['X-CSRFToken'] = token
         }
       })
 
-      // Registrar evento personalizado para disparar toasts desde cualquier JS
-      document.body.addEventListener('show-toast', function(e) {
+      // Disparar toast desde HTMX responses o JS puro
+      document.body.addEventListener('show-toast', function (e) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: e.detail }))
       })
     </script>

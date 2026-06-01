@@ -3,9 +3,11 @@ from django.db.models import Q
 
 
 class Semestre(models.Model):
+	PERIODO_CHOICES = [(1, "Primer semestre"), (2, "Segundo semestre")]
+
 	id_semestre = models.AutoField(primary_key=True)
 	anio = models.PositiveSmallIntegerField("Año")
-	periodo = models.PositiveSmallIntegerField("Periodo")
+	periodo = models.PositiveSmallIntegerField("Periodo", choices=PERIODO_CHOICES)
 	activo = models.BooleanField(default=False)
 
 	class Meta:

@@ -28,8 +28,7 @@
           <button
             type="button"
             class="btn btn-sm btn-outline-danger"
-            hx-post="{% url 'salas:eliminar-sala' sala.id_sala %}"
-            hx-confirm="¿Estás seguro de eliminar la sala «{{ sala.nombre }}»?"
+            onclick="window.dispatchEvent(new CustomEvent('confirmar-eliminar', {detail: {url: '{% url 'salas:eliminar-sala' sala.id_sala %}', message: '¿Estás seguro de eliminar la sala {{ sala.nombre|escapejs }}?'}}))"
             title="Eliminar"
           >
             <i class="bi bi-trash"></i>

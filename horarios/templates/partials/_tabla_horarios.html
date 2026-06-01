@@ -30,8 +30,7 @@
           <button
             type="button"
             class="btn btn-sm btn-outline-danger"
-            hx-post="{% url 'horarios:eliminar-horario' horario.id_horario %}"
-            hx-confirm="¿Estás seguro de eliminar el horario de {{ horario.sala.codigo }} los {{ horario.get_dia_semana_display }}?"
+            onclick="window.dispatchEvent(new CustomEvent('confirmar-eliminar', {detail: {url: '{% url 'horarios:eliminar-horario' horario.id_horario %}', message: '¿Estás seguro de eliminar el horario de {{ horario.sala.codigo|escapejs }} los {{ horario.get_dia_semana_display|escapejs }}?'}}))"
             title="Eliminar"
           >
             <i class="bi bi-trash"></i>

@@ -34,8 +34,7 @@
           <button
             type="button"
             class="btn btn-sm btn-outline-danger"
-            hx-post="{% url 'semestres:eliminar' s.id_semestre %}"
-            hx-confirm="¿Estás seguro de eliminar el semestre {{ s.anio }}-{{ s.periodo }}?"
+            onclick="window.dispatchEvent(new CustomEvent('confirmar-eliminar', {detail: {url: '{% url 'semestres:eliminar' s.id_semestre %}', message: '¿Estás seguro de eliminar el semestre {{ s.anio|escapejs }}-{{ s.periodo|escapejs }}?'}}))"
             title="Eliminar"
           >
             <i class="bi bi-trash"></i>

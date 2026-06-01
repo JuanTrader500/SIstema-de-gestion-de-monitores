@@ -30,8 +30,7 @@
           <button
             type="button"
             class="btn btn-sm btn-outline-danger"
-            hx-post="{% url 'monitores:eliminar' m.id %}"
-            hx-confirm="¿Estás seguro de eliminar a «{{ m.get_full_name }}»?"
+            onclick="window.dispatchEvent(new CustomEvent('confirmar-eliminar', {detail: {url: '{% url 'monitores:eliminar' m.id %}', message: '¿Estás seguro de eliminar a {{ m.get_full_name|escapejs }}?'}}))"
             title="Eliminar"
           >
             <i class="bi bi-trash"></i>

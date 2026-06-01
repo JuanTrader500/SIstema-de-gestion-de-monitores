@@ -1,3 +1,7 @@
+import json
+
+from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -7,7 +11,9 @@ from usuarios.views import admin_required
 
 from .forms import SemestreForm
 from .models import Semestre
-from .services import actualizar_semestre, crear_semestre, eliminar_semestre
+from .services import actualizar_semestre
+from .services import crear_semestre as service_crear_semestre
+from .services import eliminar_semestre as service_eliminar_semestre
 
 
 @admin_required
@@ -24,16 +30,18 @@ def crear_semestre(request):
     if request.method == "POST":
         form = SemestreForm(data=request.POST)
         if form.is_valid():
-            crear_semestre(
-                anio=form.cleaned_data["anio"],
-                periodo=int(form.cleaned_data["periodo"]),
-                activo=form.cleaned_data.get("activo", False),
-            )
+            try:
+                service_crear_semestre(
+                    anio=form.cleaned_data["anio"],
+                    periodo=int(form.cleaned_data["periodo"]),
+                    activo=form.cleaned_data.get("activo", False),
+                )
+            except ValidationError as e:
+                form.add_error(None, str(e))
+                return render(request, "partials/_form_semestre.html", {"form": form})
+            messages.success(request, "Semestre creado correctamente.")
             response = HttpResponse()
-            response["HX-Trigger"] = (
-                '{"show-toast":{"type":"success","message":"Semestre creado correctamente."}}'
-            )
-            response["HX-Location"] = reverse("semestres:listar")
+            response["HX-Redirect"] = reverse("semestres:listar")
             return response
         return render(request, "partials/_form_semestre.html", {"form": form})
     form = SemestreForm()
@@ -47,17 +55,19 @@ def editar_semestre(request, id_semestre):
     if request.method == "POST":
         form = SemestreForm(data=request.POST, semestre_id=id_semestre)
         if form.is_valid():
-            actualizar_semestre(
-                id_semestre=id_semestre,
-                anio=form.cleaned_data["anio"],
-                periodo=int(form.cleaned_data["periodo"]),
-                activo=form.cleaned_data.get("activo", False),
-            )
+            try:
+                actualizar_semestre(
+                    id_semestre=id_semestre,
+                    anio=form.cleaned_data["anio"],
+                    periodo=int(form.cleaned_data["periodo"]),
+                    activo=form.cleaned_data.get("activo", False),
+                )
+            except ValidationError as e:
+                form.add_error(None, str(e))
+                return render(request, "partials/_form_semestre.html", {"form": form})
+            messages.success(request, "Semestre actualizado correctamente.")
             response = HttpResponse()
-            response["HX-Trigger"] = (
-                '{"show-toast":{"type":"success","message":"Semestre actualizado correctamente."}}'
-            )
-            response["HX-Location"] = reverse("semestres:listar")
+            response["HX-Redirect"] = reverse("semestres:listar")
             return response
         return render(request, "partials/_form_semestre.html", {"form": form})
     form = SemestreForm(
@@ -75,7 +85,14 @@ def editar_semestre(request, id_semestre):
 @require_http_methods(["POST"])
 def eliminar_semestre(request, id_semestre):
     get_object_or_404(Semestre, pk=id_semestre)
-    eliminar_semestre(id_semestre=id_semestre)
+    try:
+        service_eliminar_semestre(id_semestre=id_semestre)
+    except ValidationError as e:
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({
+            "show-toast": {"type": "error", "message": str(e)}
+        })
+        return response
     response = HttpResponse(status=204)
     response["HX-Redirect"] = reverse("semestres:listar")
     response["HX-Trigger"] = (

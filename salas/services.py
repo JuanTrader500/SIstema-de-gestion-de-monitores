@@ -65,5 +65,10 @@ def actualizar_sala(id_sala: int, codigo: str = None, nombre: str = None, capaci
 
 
 def eliminar_sala(id_sala: int) -> None:
+    from asignaciones.models import Asignacion
+    if Asignacion.objects.filter(horario__sala_id=id_sala).exists():
+        raise ValidationError(
+            "No se puede eliminar la sala porque tiene horarios con asignaciones activas."
+        )
     sala = obtener_sala(id_sala)
     sala.delete()

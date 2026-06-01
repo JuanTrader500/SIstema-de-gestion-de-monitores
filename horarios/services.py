@@ -54,4 +54,9 @@ def actualizar_horario(
 
 
 def eliminar_horario(id_horario: int) -> None:
+    from asignaciones.models import Asignacion
+    if Asignacion.objects.filter(horario_id=id_horario).exists():
+        raise ValidationError(
+            "No se puede eliminar el horario porque tiene asignaciones activas."
+        )
     Horario.objects.filter(pk=id_horario).delete()

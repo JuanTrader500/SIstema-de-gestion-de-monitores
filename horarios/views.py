@@ -1,3 +1,7 @@
+import json
+
+from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -7,7 +11,9 @@ from usuarios.views import admin_required
 
 from .forms import HorarioForm
 from .models import Horario
-from .services import actualizar_horario, crear_horario, eliminar_horario
+from .services import actualizar_horario
+from .services import crear_horario as service_crear_horario
+from .services import eliminar_horario as service_eliminar_horario
 
 
 @admin_required
@@ -24,17 +30,19 @@ def crear_horario(request):
     if request.method == "POST":
         form = HorarioForm(data=request.POST)
         if form.is_valid():
-            crear_horario(
-                sala_id=form.cleaned_data["sala"].id_sala,
-                dia_semana=int(form.cleaned_data["dia_semana"]),
-                hora_inicio=form.cleaned_data["hora_inicio"],
-                hora_fin=form.cleaned_data["hora_fin"],
-            )
+            try:
+                service_crear_horario(
+                    sala_id=form.cleaned_data["sala"].id_sala,
+                    dia_semana=int(form.cleaned_data["dia_semana"]),
+                    hora_inicio=form.cleaned_data["hora_inicio"],
+                    hora_fin=form.cleaned_data["hora_fin"],
+                )
+            except ValidationError as e:
+                form.add_error(None, str(e))
+                return render(request, "partials/_form_horario.html", {"form": form})
+            messages.success(request, "Horario creado correctamente.")
             response = HttpResponse()
-            response["HX-Trigger"] = (
-                '{"show-toast":{"type":"success","message":"Horario creado correctamente."}}'
-            )
-            response["HX-Location"] = reverse("horarios:listar")
+            response["HX-Redirect"] = reverse("horarios:listar")
             return response
         return render(request, "partials/_form_horario.html", {"form": form})
     form = HorarioForm()
@@ -48,18 +56,20 @@ def editar_horario(request, id_horario):
     if request.method == "POST":
         form = HorarioForm(data=request.POST, horario_id=id_horario)
         if form.is_valid():
-            actualizar_horario(
-                id_horario=id_horario,
-                sala_id=form.cleaned_data["sala"].id_sala,
-                dia_semana=int(form.cleaned_data["dia_semana"]),
-                hora_inicio=form.cleaned_data["hora_inicio"],
-                hora_fin=form.cleaned_data["hora_fin"],
-            )
+            try:
+                actualizar_horario(
+                    id_horario=id_horario,
+                    sala_id=form.cleaned_data["sala"].id_sala,
+                    dia_semana=int(form.cleaned_data["dia_semana"]),
+                    hora_inicio=form.cleaned_data["hora_inicio"],
+                    hora_fin=form.cleaned_data["hora_fin"],
+                )
+            except ValidationError as e:
+                form.add_error(None, str(e))
+                return render(request, "partials/_form_horario.html", {"form": form})
+            messages.success(request, "Horario actualizado correctamente.")
             response = HttpResponse()
-            response["HX-Trigger"] = (
-                '{"show-toast":{"type":"success","message":"Horario actualizado correctamente."}}'
-            )
-            response["HX-Location"] = reverse("horarios:listar")
+            response["HX-Redirect"] = reverse("horarios:listar")
             return response
         return render(request, "partials/_form_horario.html", {"form": form})
     form = HorarioForm(
@@ -78,7 +88,14 @@ def editar_horario(request, id_horario):
 @require_http_methods(["POST"])
 def eliminar_horario(request, id_horario):
     get_object_or_404(Horario, pk=id_horario)
-    eliminar_horario(id_horario=id_horario)
+    try:
+        service_eliminar_horario(id_horario=id_horario)
+    except ValidationError as e:
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({
+            "show-toast": {"type": "error", "message": str(e)}
+        })
+        return response
     response = HttpResponse(status=204)
     response["HX-Redirect"] = reverse("horarios:listar")
     response["HX-Trigger"] = (

@@ -1,19 +1,83 @@
 <div
-  x-data="{ open: false, title: '' }"
-  @abrir-modal.window="open = true; title = $event.detail.title"
-  @cerrar-modal.window="open = false"
+  x-data="{
+    open: false,
+    title: '',
+    mode: 'default',
+    message: '',
+    confirmUrl: '',
+    confirmBtnClass: 'btn-danger',
+    confirmBtnText: 'Eliminar',
+    cancelBtnText: 'Cancelar',
+    confirmar() {
+      if (!this.confirmUrl) return
+      const token = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || ''
+      fetch(this.confirmUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': token,
+          'HX-Request': 'true',
+        },
+      }).then(r => {
+        const redirect = r.headers.get('HX-Redirect')
+        const trigger = r.headers.get('HX-Trigger')
+        if (trigger) {
+          try {
+            const data = JSON.parse(trigger)
+            if (data['show-toast']) {
+              sessionStorage.setItem('sgm_toast', JSON.stringify(data['show-toast']))
+            }
+            Object.keys(data).forEach(key => {
+              window.dispatchEvent(new CustomEvent(key, { detail: data[key] }))
+            })
+          } catch (_) {}
+        }
+        if (redirect) {
+          window.location.href = redirect
+        }
+      }).catch(() => {
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: { type: 'error', message: 'Error de conexión al eliminar.' }
+        }))
+      })
+      this.open = false
+    }
+  }"
+  @abrir-modal.window="open = true; title = $event.detail.title || ''; mode = 'default'"
+  @confirmar-eliminar.window="
+    open = true;
+    mode = 'confirm';
+    title = $event.detail.title || 'Confirmar eliminación';
+    message = $event.detail.message || '¿Estás seguro?';
+    confirmUrl = $event.detail.url || '';
+    confirmBtnClass = $event.detail.confirmClass || 'btn-danger';
+    confirmBtnText = $event.detail.confirmText || 'Eliminar';
+    cancelBtnText = $event.detail.cancelText || 'Cancelar';
+  "
+  @cerrar-modal.window="open = false; mode = 'default'"
 >
   <template x-teleport="body">
     <div x-show="open" style="display: none;" x-cloak>
       <div class="modal-backdrop fade show" @click="open = false"></div>
       <div class="modal fade show d-block" tabindex="-1" @click.self="open = false">
         <div class="modal-dialog modal-dialog-centered modal-{{ size|default:'md' }}">
-          <div class="modal-content">
+          <div class="modal-content border-0 shadow">
             <div class="modal-header">
-              <h5 class="modal-title" x-text="title"></h5>
+              <h5 class="modal-title fw-semibold" x-text="title"></h5>
               <button @click="open = false" class="btn-close" type="button"></button>
             </div>
-            <div class="modal-body" id="modal-body"></div>
+            <div class="modal-body">
+              <div x-show="mode === 'default'" id="modal-body"></div>
+              <div x-show="mode === 'confirm'">
+                <div class="text-center py-3">
+                  <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 3rem;"></i>
+                  <p class="mt-3 mb-0 text-muted" x-text="message"></p>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer border-0 pt-0" x-show="mode === 'confirm'">
+              <button type="button" class="btn btn-outline-secondary" @click="open = false" x-text="cancelBtnText"></button>
+              <button type="button" :class="'btn ' + confirmBtnClass" @click="confirmar()" x-text="confirmBtnText"></button>
+            </div>
           </div>
         </div>
       </div>
