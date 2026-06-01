@@ -45,6 +45,42 @@ Implementación de una memoria a corto plazo que permite al chat mantener el hil
 ## Manejo de Restricciones
 En la base de datos, cada asesor registrado tendrá el horario del semestre. Esto con el fin de hacer una comparación de horarios de monitoría y horarios de disponibilidad del monitor; de la misma manera se harán las validaciones para las solicitudes de cambio.
 
+## Testing
+
+El proyecto cuenta con una suite de **123 tests automatizados** que cubren modelos,
+servicios, formularios y vistas de todas las apps del sistema.
+
+### Ejecutar los tests
+
+```bash
+python manage.py test --settings=sgmsc.settings_test --verbosity=2
+```
+
+### Configuración de test
+
+El archivo `sgmsc/settings_test.py` define un entorno aislado que usa una base de
+datos PostgreSQL separada (`test_sgmsc_db`), garantizando que los datos de desarrollo
+no se vean afectados al correr la suite.
+
+### Cobertura por app
+
+| App            | Qué se prueba                                                                 |
+|----------------|-------------------------------------------------------------------------------|
+| `usuarios`     | Modelo, roles, formulario de creación, vistas de login y dashboards por rol   |
+| `salas`        | Modelo, service CRUD completo, vistas JSON (GET / POST / PATCH / DELETE)      |
+| `horarios`     | Modelo, validación `hora_fin > hora_inicio`, cascada al eliminar sala         |
+| `semestres`    | Modelo, unicidad `anio+periodo`, constraint `periodo in [1,2]`, ordering      |
+| `asignaciones` | Modelo `clean()`, constraints de unicidad, detección de solapamiento, form    |
+| `cambios`      | Modelo `clean()`, service crear/aprobar/rechazar, vistas de solicitudes       |
+
+### Criterios de validación cubiertos
+
+- Conflictos de horario del monitor al crear asignaciones y al aprobar cambios
+- Una sola solicitud pendiente por asignación
+- El reemplazo no puede ser el mismo solicitante ni tener rol admin
+- Constraints de BD: unicidad de horario+semestre, unicidad de monitor+horario+semestre
+- Control de acceso por rol (admin vs monitor vs anónimo) en todas las vistas
+
 ## Stack Tecnológico
 * **Backend:** Python & Django.
 * **Base de Datos:** PostgreSQL + pgvector [Documentacion pgvector](https://github.com/pgvector/pgvector)
