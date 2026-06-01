@@ -97,6 +97,7 @@
         <a class="navbar-brand fw-semibold me-4" href="{% if request.user.is_authenticated %}{% url 'post_login_router' %}{% else %}{% url 'login' %}{% endif %}">SGM SC</a>
         {% if request.user.is_authenticated %}
           <div class="d-flex align-items-center gap-3 flex-grow-1">
+            {% if request.user.rol == 'admin' %}
             <div class="d-flex gap-2">
               <a class="nav-link text-white-50 small px-2 py-0" href="{% url 'salas:listar' %}">Salas</a>
               <a class="nav-link text-white-50 small px-2 py-0" href="{% url 'horarios:listar' %}">Horarios</a>
@@ -104,6 +105,7 @@
               <a class="nav-link text-white-50 small px-2 py-0" href="{% url 'monitores:listar' %}">Monitores</a>
               <a class="nav-link text-white-50 small px-2 py-0" href="{% url 'crear_asignacion' %}">Asignaciones</a>
             </div>
+            {% endif %}
             <div class="d-flex align-items-center gap-3 ms-auto">
               <span class="text-white-50 small">{{ request.user.email }}</span>
               <form method="post" action="{% url 'logout' %}" class="m-0">
@@ -134,7 +136,9 @@
       </div>
     </footer>
 
+    {% if request.user.rol == 'admin' %}
     {% include 'usuarios/partials/chat_panel.html' %}
+    {% endif %}
 
     <script>
       function toastManager() {
