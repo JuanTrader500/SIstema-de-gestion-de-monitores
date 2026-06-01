@@ -93,7 +93,7 @@ class SolicitudCambio(models.Model):
 			})
 
 		# 3. El reemplazo debe tener rol "monitor" (solo al crear)
-		if self.estado == self.PENDIENTE and self.monitor_reemplazo:
+		if self.estado == self.PENDIENTE and self.monitor_reemplazo_id:
 			rol = getattr(self.monitor_reemplazo, "rol", None)
 			if rol and rol != "monitor":
 				raise ValidationError({
@@ -101,7 +101,7 @@ class SolicitudCambio(models.Model):
 				})
 
 		# 4. Validar que el reemplazo tenga disponibilidad en el horario (solo al crear)
-		if self.estado == self.PENDIENTE and self.asignacion and self.monitor_reemplazo:
+		if self.estado == self.PENDIENTE and self.asignacion and self.monitor_reemplazo_id:
 			from asignaciones.models import Asignacion
 			conflicto = Asignacion.objects.filter(
 				monitor_id=self.monitor_reemplazo_id,
