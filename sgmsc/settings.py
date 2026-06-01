@@ -86,6 +86,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'sgmsc.wsgi.application'
 
+LOGIN_URL = "/usuarios/login/"
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
