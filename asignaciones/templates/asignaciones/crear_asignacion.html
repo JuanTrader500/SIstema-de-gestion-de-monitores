@@ -12,8 +12,14 @@
     }
 
     .horario-cell[data-status="occupied"],
-    .horario-cell[data-status="none"] {
+    .horario-cell[data-status="none"],
+    .horario-cell[data-status="monitor_busy"] {
       cursor: not-allowed;
+    }
+
+    .horario-cell[data-status="monitor_busy"] {
+      background-color: #fff3cd !important;
+      border-color: #ffc107 !important;
     }
 
     .sgmsc-selected {
@@ -54,13 +60,6 @@
               <div class="col-12 col-lg-5">
                 <label class="form-label" for="{{ form.sala.id_for_label }}">{{ form.sala.label }}</label>
                 {{ form.sala }}
-                <datalist id="salaComputoList">
-                  {% for sala in salas %}
-                    <option value="{{ sala.codigo }} - {{ sala.nombre }}" data-id="{{ sala.id_sala }}"></option>
-                  {% endfor %}
-                </datalist>
-                {{ form.sala_id }}
-                <div class="form-text">Escribe el código o el nombre y selecciona una coincidencia.</div>
                 {% if form.sala.errors %}
                   {% for error in form.sala.errors %}
                     <div class="text-danger small">{{ error }}</div>
@@ -81,12 +80,6 @@
               <div class="col-12 col-lg-4">
                 <label class="form-label" for="{{ form.monitor.id_for_label }}">{{ form.monitor.label }}</label>
                 {{ form.monitor }}
-                <datalist id="monitorEmails">
-                  {% for monitor in monitores %}
-                    <option value="{{ monitor.email }}">{{ monitor.email }}{% if monitor.get_full_name %} — {{ monitor.get_full_name }}{% endif %}</option>
-                  {% endfor %}
-                </datalist>
-                <div class="form-text">Empieza a escribir el correo y selecciona una opción sugerida.</div>
                 {% if form.monitor.errors %}
                   {% for error in form.monitor.errors %}
                     <div class="text-danger small">{{ error }}</div>
@@ -102,6 +95,7 @@
                 <span class="fw-semibold">Estados:</span>
                 <span class="ms-2">Disponible (verde)</span>
                 <span class="ms-2">Ocupado (rojo)</span>
+                <span class="ms-2">Ocupado por monitor (amarillo)</span>
                 <span class="ms-2">Seleccionado (azul)</span>
               </div>
             </div>
@@ -132,6 +126,11 @@
                                 {% if cell.monitor and cell.monitor != cell.monitor_email %}
                                   <div class="text-muted">{{ cell.monitor }}</div>
                                 {% endif %}
+                              </td>
+                            {% elif cell.status == 'monitor_busy' %}
+                              <td class="horario-cell bg-warning-subtle border-warning small" data-status="monitor_busy" data-key="{{ cell.key }}">
+                                <div class="fw-semibold text-warning-emphasis">Ocupado</div>
+                                <div class="text-muted small">por este monitor (otra sala)</div>
                               </td>
                             {% else %}
                               <td
@@ -171,48 +170,33 @@
 {% block extra_js %}
   <script>
     (() => {
-      const salaInput = document.getElementById("{{ form.sala.id_for_label }}");
-      const salaIdInput = document.getElementById("{{ form.sala_id.id_for_label }}");
-      const salaDatalist = document.getElementById("salaComputoList");
+      const salaSelect = document.getElementById("{{ form.sala.id_for_label }}");
       const semestreSelect = document.getElementById("{{ form.semestre.id_for_label }}");
-      const monitorInput = document.getElementById("{{ form.monitor.id_for_label }}");
+      const monitorSelect = document.getElementById("{{ form.monitor.id_for_label }}");
+      const selectedInput = document.getElementById("selectedHorarios");
 
       const buildFilterUrl = () => {
         const params = new URLSearchParams();
-        const salaId = (salaIdInput?.value || "").trim();
-        const semestre = (semestreSelect?.value || "").trim();
-        const monitor = (monitorInput?.value || "").trim();
-
-        if (salaId) params.set("sala_id", salaId);
+        const sala = salaSelect?.value || "";
+        const semestre = semestreSelect?.value || "";
+        const monitor = monitorSelect?.value || "";
+        if (sala) params.set("sala_id", sala);
         if (semestre) params.set("semestre", semestre);
         if (monitor) params.set("monitor", monitor);
         const qs = params.toString();
         return `${window.location.pathname}${qs ? `?${qs}` : ""}`;
       };
 
-      const syncSalaIdFromInput = () => {
-        if (!salaInput || !salaIdInput || !salaDatalist) return;
-
-        const value = (salaInput.value || "").trim();
-        const options = Array.from(salaDatalist.options || []);
-        const match = options.find((opt) => (opt.value || "").trim() === value);
-        salaIdInput.value = match?.dataset?.id || "";
-      };
-
-      // Al elegir una sala (datalist) o cambiar periodo, recargamos la grilla.
-      salaInput?.addEventListener("input", syncSalaIdFromInput);
-      salaInput?.addEventListener("change", () => {
-        syncSalaIdFromInput();
-        if (salaIdInput?.value) {
-          window.location.assign(buildFilterUrl());
-        }
+      salaSelect?.addEventListener("change", () => {
+        window.location.assign(buildFilterUrl());
       });
       semestreSelect?.addEventListener("change", () => {
         window.location.assign(buildFilterUrl());
       });
+      monitorSelect?.addEventListener("change", () => {
+        window.location.assign(buildFilterUrl());
+      });
 
-      // Selección de celdas en la grilla
-      const selectedInput = document.getElementById("selectedHorarios");
       const availableCells = Array.from(
         document.querySelectorAll("td[data-status='available'][data-key]")
       );
@@ -230,7 +214,6 @@
         selectedInput.value = Array.from(selected).join(",");
       };
 
-      // Función para limpiar completamente las selecciones
       const clearSelections = () => {
         selected.clear();
         syncSelectedInput();
@@ -239,12 +222,6 @@
         });
       };
 
-      // Si el usuario cambia o borra el monitor, limpiamos los horarios
-      monitorInput?.addEventListener("input", () => {
-        clearSelections();
-      });
-
-      // Asegurar que el estado inicial coincide con el hidden input
       availableCells.forEach((cell) => {
         const key = (cell.dataset.key || "").trim();
         if (key && selected.has(key)) {

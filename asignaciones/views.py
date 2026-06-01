@@ -33,8 +33,6 @@ def _validation_error_to_text(exc: ValidationError) -> str:
 @admin_required
 @require_http_methods(["GET", "POST"])
 def crear_asignacion_view(request):
-	salas = list(Sala.objects.all().order_by("codigo"))
-	monitores = list(Usuario.objects.filter(rol=Usuario.MONITOR).order_by("email"))
 	semestres_qs = Semestre.objects.order_by("-anio", "-periodo")
 
 	semestre_activo = semestres_qs.filter(activo=True).first()
@@ -42,21 +40,24 @@ def crear_asignacion_view(request):
 
 	selected_sala_id = request.GET.get("sala_id") or request.POST.get("sala_id")
 	selected_semestre_id = request.GET.get("semestre") or request.POST.get("semestre")
-	selected_monitor_email = request.GET.get("monitor")
+	selected_monitor_email = request.GET.get("monitor") or request.POST.get("monitor")
 
 	if not selected_semestre_id and semestre_default is not None:
 		selected_semestre_id = str(semestre_default.pk)
 
 	selected_sala = None
-	sala_display = ""
 	if selected_sala_id:
 		selected_sala = Sala.objects.filter(id_sala=selected_sala_id).first()
-		if selected_sala is not None:
-			sala_display = f"{selected_sala.codigo} - {selected_sala.nombre}"
 
 	selected_semestre = None
 	if selected_semestre_id:
 		selected_semestre = Semestre.objects.filter(pk=selected_semestre_id).first()
+
+	selected_monitor = None
+	if selected_monitor_email:
+		selected_monitor = Usuario.objects.filter(
+			email=selected_monitor_email, rol=Usuario.MONITOR
+		).first()
 
 	if request.method == "POST":
 		form = CrearAsignacionesForm(
@@ -68,7 +69,8 @@ def crear_asignacion_view(request):
 		if form.is_valid():
 			monitor = form.cleaned_data["monitor"]
 			semestre = form.cleaned_data["semestre"]
-			sala_id = form.cleaned_data["sala_id"]
+			sala = form.cleaned_data["sala"]
+			sala_id = sala.id_sala
 			selecciones = form.cleaned_data["horarios"]
 			try:
 				creadas = crear_asignaciones(
@@ -92,8 +94,7 @@ def crear_asignacion_view(request):
 		if selected_semestre_id:
 			initial["semestre"] = selected_semestre_id
 		if selected_sala is not None:
-			initial["sala"] = sala_display
-			initial["sala_id"] = selected_sala.id_sala
+			initial["sala"] = selected_sala.pk
 
 		form = CrearAsignacionesForm(
 			initial=initial,
@@ -111,6 +112,18 @@ def crear_asignacion_view(request):
 	if request.method == "POST":
 		raw_selected = request.POST.get("horarios") or ""
 		selected_keys_set = {x.strip() for x in raw_selected.split(",") if x.strip()}
+
+	# Asignaciones existentes del monitor seleccionado (en cualquier sala),
+	# indexadas por día para búsqueda O(1) por día.
+	monitor_by_day: dict[int, list[tuple[time, time]]] = {}
+	if selected_monitor is not None and selected_semestre is not None:
+		for a in Asignacion.objects.filter(
+			monitor=selected_monitor,
+			semestre=selected_semestre,
+		).select_related("horario").iterator():
+			monitor_by_day.setdefault(a.horario.dia_semana, []).append(
+				(a.horario.hora_inicio, a.horario.hora_fin)
+			)
 
 	if selected_sala is not None and selected_semestre is not None:
 		horarios_sala = list(
@@ -174,13 +187,27 @@ def crear_asignacion_view(request):
 							}
 						)
 					else:
-						row["cells"].append(
-							{
-								"status": "available",
-								"key": f"h:{horario.id_horario}",
-								"horario_id": horario.id_horario,
-							}
+						# Verificar si el monitor seleccionado ya tiene turno a esta hora
+						is_monitor_busy = any(
+							s < fin and e > inicio
+							for s, e in monitor_by_day.get(dia_value, [])
 						)
+						if is_monitor_busy:
+							row["cells"].append(
+								{
+									"status": "monitor_busy",
+									"key": f"h:{horario.id_horario}",
+									"horario_id": horario.id_horario,
+								}
+							)
+						else:
+							row["cells"].append(
+								{
+									"status": "available",
+									"key": f"h:{horario.id_horario}",
+									"horario_id": horario.id_horario,
+								}
+							)
 					continue
 
 				# No existe horario exacto: permitir crear si no se cruza con uno existente.
@@ -191,25 +218,35 @@ def crear_asignacion_view(request):
 				if overlap:
 					row["cells"].append({"status": "none"})
 				else:
-					row["cells"].append(
-						{
-							"status": "available",
-							"key": f"n:{dia_value}|{_fmt_hora(inicio)}|{_fmt_hora(fin)}",
-						}
+					# Verificar si el monitor seleccionado ya tiene turno a esta hora
+					is_monitor_busy = any(
+						s < fin and e > inicio
+						for s, e in monitor_by_day.get(dia_value, [])
 					)
+					if is_monitor_busy:
+						row["cells"].append(
+							{
+								"status": "monitor_busy",
+								"key": f"n:{dia_value}|{_fmt_hora(inicio)}|{_fmt_hora(fin)}",
+							}
+						)
+					else:
+						row["cells"].append(
+							{
+								"status": "available",
+								"key": f"n:{dia_value}|{_fmt_hora(inicio)}|{_fmt_hora(fin)}",
+							}
+						)
 
 			grid_rows.append(row)
 
 	context = {
 		"form": form,
-		"salas": salas,
-		"monitores": monitores,
 		"selected_sala": selected_sala,
 		"selected_semestre": selected_semestre,
 		"dias": dias,
 		"grid_rows": grid_rows,
 		"selected_keys": selected_keys_set,
-		"sala_display": sala_display,
 		"admin_username": request.user.username,
 	}
 	return render(request, "asignaciones/crear_asignacion.html", context)

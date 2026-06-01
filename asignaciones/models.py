@@ -22,6 +22,8 @@ class Asignacion(models.Model):
 	fecha_creacion = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
+		verbose_name = "Asignación"
+		verbose_name_plural = "Asignaciones"
 		constraints = [
 			models.UniqueConstraint(
 				fields=["horario", "semestre"],
