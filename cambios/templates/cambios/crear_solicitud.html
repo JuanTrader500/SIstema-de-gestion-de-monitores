@@ -1,67 +1,426 @@
 {% extends 'base.html' %}
 
-{% block title %}Crear Solicitud de Cambio | SGM SC{% endblock %}
+{% block title %}Pedir Reemplazo de Turno | SGM SC{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Cursor pointer y efectos visuales para que sea obvio que se puede hacer clic */
+  .grilla-turno-td {
+    cursor: pointer !important;
+  }
+  .grilla-turno-card {
+    cursor: pointer !important;
+    user-select: none;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .grilla-turno-card:hover {
+    cursor: pointer !important;
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 6px 16px rgba(13, 110, 253, 0.3) !important;
+  }
+  .grilla-turno-card:active {
+    transform: scale(0.98);
+  }
+  .turno-seleccionado {
+    outline: 3px solid #0d6efd !important;
+    box-shadow: 0 0 16px rgba(13, 110, 253, 0.5) !important;
+  }
+
+  .btn-bloque-hora {
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer !important;
+    transition: all 0.15s ease;
+  }
+  .btn-bloque-hora.seleccionado {
+    background-color: #0d6efd !important;
+    color: white !important;
+    border-color: #0d6efd !important;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.3);
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-  <div class="d-flex justify-content-center py-5">
-    <div style="max-width: 800px; width: 100%; padding: 0 20px;">
-      <div class="card shadow-sm border-0">
-        <div class="card-body p-4 p-md-5">
-          <div class="d-flex flex-column flex-sm-row align-items-sm-start justify-content-between gap-3 mb-4">
-            <div>
-              <h1 class="h4 fw-semibold text-sgmsc mb-1">Crear Solicitud de Cambio</h1>
-              <p class="text-muted mb-0">Solicita un cambio de turno indicando el monitor de reemplazo.</p>
-            </div>
-            <a class="btn btn-outline-secondary" href="{% url 'monitor_dashboard' %}">Volver al panel</a>
-          </div>
+<div class="container py-4">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+    <div>
+      <h1 class="h3 fw-bold text-sgmsc mb-1">Pedir Reemplazo de Turno</h1>
+      <p class="text-muted mb-0">Haz clic en tu horario semanal para elegir el turno que necesitas cambiar.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'monitor_dashboard' %}">Volver al panel</a>
+  </div>
 
-          <form method="post" novalidate>
-            {% csrf_token %}
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger shadow-sm mb-4" role="alert">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
 
-            {% if form.non_field_errors %}
-              <div class="alert alert-danger shadow-sm" role="alert">
-                {{ form.non_field_errors }}
-              </div>
-            {% endif %}
-
-            <div class="row g-3">
-              <div class="col-12">
-                <label class="form-label" for="{{ form.asignacion.id_for_label }}">{{ form.asignacion.label }}</label>
-                {{ form.asignacion }}
-                {% if form.asignacion.errors %}
-                  {% for error in form.asignacion.errors %}
-                    <div class="text-danger small">{{ error }}</div>
-                  {% endfor %}
-                {% endif %}
-              </div>
-
-              <div class="col-12">
-                <label class="form-label" for="{{ form.monitor_reemplazo.id_for_label }}">{{ form.monitor_reemplazo.label }}</label>
-                {{ form.monitor_reemplazo }}
-                {% if form.monitor_reemplazo.errors %}
-                  {% for error in form.monitor_reemplazo.errors %}
-                    <div class="text-danger small">{{ error }}</div>
-                  {% endfor %}
-                {% endif %}
-              </div>
-
-              <div class="col-12">
-                <label class="form-label" for="{{ form.motivo.id_for_label }}">{{ form.motivo.label }}</label>
-                {{ form.motivo }}
-                {% if form.motivo.errors %}
-                  {% for error in form.motivo.errors %}
-                    <div class="text-danger small">{{ error }}</div>
-                  {% endfor %}
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="d-grid mt-4">
-              <button class="btn btn-primary btn-lg" type="submit">Enviar solicitud de cambio</button>
-            </div>
-          </form>
-        </div>
+  <!-- GRILLA SEMANAL DE TURNOS (TIPO ADMINISTRADOR CON CURSOR ONCLICK) -->
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+      <div>
+        <h2 class="h5 fw-semibold mb-0">Tu Horario Semanal</h2>
+        <small class="text-muted">Semestre {% if semestre_activo %}{{ semestre_activo }}{% else %}activo{% endif %} · Haz clic sobre cualquiera de tus turnos para seleccionarlo</small>
       </div>
+      <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2">
+        <i class="bi bi-hand-index-thumb-fill me-1"></i> Clic para elegir turno
+      </span>
+    </div>
+    <div class="card-body p-0">
+      {% if mis_asignaciones %}
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle text-center mb-0">
+            <thead class="table-light">
+              <tr>
+                <th scope="col" style="width: 140px;">Franja</th>
+                {% for dia_num, dia_nom in dias %}
+                  <th scope="col">{{ dia_nom }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in grid_rows %}
+                <tr>
+                  <th scope="row" class="text-nowrap small text-muted bg-light">{{ row.label }}</th>
+                  {% for cell in row.cells %}
+                    {% if cell.tipo == 'mi_turno' %}
+                      <td class="p-2 grilla-turno-td" onclick="seleccionarTurnoDesdeGrilla('{{ cell.asignacion_id }}')" title="Haz clic para seleccionar este turno">
+                        <div class="card bg-primary text-white border-0 p-2 grilla-turno-card shadow-sm"
+                             data-asignacion-id="{{ cell.asignacion_id }}">
+                          <div class="fw-bold small">{{ cell.sala }}</div>
+                          <div class="small opacity-75">{{ cell.horario }}</div>
+                          <span class="badge bg-white text-primary mt-1" style="font-size: 0.72rem;">
+                            <i class="bi bi-check-circle-fill me-1"></i> Mi Turno
+                          </span>
+                        </div>
+                      </td>
+                    {% else %}
+                      <td class="text-muted small bg-light bg-opacity-25">—</td>
+                    {% endif %}
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-4 text-center">
+          <div class="alert alert-info mb-0">
+            No tienes turnos asignados en este período académico.
+          </div>
+        </div>
+      {% endif %}
     </div>
   </div>
+
+  <!-- FORMULARIO DE REEMPLAZO -->
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-4 p-md-5">
+      <form method="post" id="formReemplazo" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        {{ form.hora_inicio_reemplazo }}
+        {{ form.hora_fin_reemplazo }}
+
+        <div class="row g-4">
+          <!-- 1. Turno a reemplazar -->
+          <div class="col-12">
+            <label class="form-label fw-semibold" for="{{ form.asignacion.id_for_label }}">
+              1. Turno que necesitas cambiar <span class="text-danger">*</span>
+            </label>
+            {{ form.asignacion }}
+            {% if form.asignacion.errors %}
+              {% for error in form.asignacion.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+            <div class="form-text">Puedes seleccionarlo aquí o haciendo clic directamente en tu grilla de arriba.</div>
+          </div>
+
+          <!-- 2. Opciones de Fraccionamiento (Turno Completo vs Bloques de 1 Hora) -->
+          <div class="col-12" id="seccionModoReemplazo" style="display: none;">
+            <label class="form-label fw-semibold">2. ¿Cuánto tiempo necesitas que te reemplacen?</label>
+            
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <button type="button" class="btn btn-outline-primary active" id="btnModoCompleto" onclick="cambiarModo('completo')">
+                <i class="bi bi-clock-fill me-1"></i> Todo el turno
+              </button>
+              <button type="button" class="btn btn-outline-primary" id="btnModoParcial" onclick="cambiarModo('parcial')">
+                <i class="bi bi-clock-history me-1"></i> Por horas (bloques de 1 hora)
+              </button>
+            </div>
+
+            <!-- Contenedor interactivo de bloques de 1 hora -->
+            <div id="contenedorBloquesHoras" class="p-3 bg-light rounded-3 border mb-3" style="display: none;">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small text-muted fw-semibold" id="indicadorMaxHoras">
+                  Selecciona los bloques de 1 hora que necesitas que cubran (máximo <span id="numMaxHoras"></span> horas):
+                </span>
+              </div>
+              <div id="listaBotonesBloques" class="d-flex flex-wrap gap-2 mb-3">
+                <!-- Se rellena dinámicamente con JS -->
+              </div>
+              
+              <!-- Resumen explicativo claro e intuitivo -->
+              <div class="alert alert-primary py-2 px-3 mb-0" id="resumenHorasReparto" style="display: none;">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-info-circle-fill fs-5"></i>
+                  <div>
+                    <span id="textoRepartoHoras" class="small fw-semibold"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {% if form.hora_inicio_reemplazo.errors or form.hora_fin_reemplazo.errors %}
+              <div class="text-danger small">
+                {{ form.hora_inicio_reemplazo.errors }}
+                {{ form.hora_fin_reemplazo.errors }}
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- 3. Monitor de reemplazo (Nombres, no correos) -->
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold" for="{{ form.monitor_reemplazo.id_for_label }}">
+              3. ¿Quién te reemplazará? <span class="text-danger">*</span>
+            </label>
+            {{ form.monitor_reemplazo }}
+            {% if form.monitor_reemplazo.errors %}
+              {% for error in form.monitor_reemplazo.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+            <div class="form-text">Compañeros monitores identificados por su nombre.</div>
+          </div>
+
+          <!-- 4. Evidencia adjunta (PDF / Imagen max 10MB, obligatoria) -->
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold" for="{{ form.evidencia.id_for_label }}">
+              4. Evidencia adjunta <span class="text-danger">*</span>
+            </label>
+            {{ form.evidencia }}
+            {% if form.evidencia.errors %}
+              {% for error in form.evidencia.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+            <div class="form-text">Obligatorio. Formatos permitidos: PDF o imágenes (JPG, PNG). Máximo 10 MB.</div>
+          </div>
+
+          <!-- 5. Motivo obligatorio (mínimo 10 caracteres) -->
+          <div class="col-12">
+            <label class="form-label fw-semibold" for="{{ form.motivo.id_for_label }}">
+              5. Motivo del reemplazo <span class="text-danger">*</span>
+            </label>
+            {{ form.motivo }}
+            {% if form.motivo.errors %}
+              {% for error in form.motivo.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+            <div class="form-text">Explica brevemente la razón del cambio (mínimo 10 caracteres).</div>
+          </div>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4 pt-3 border-top">
+          <a href="{% url 'monitor_dashboard' %}" class="btn btn-light px-4">Cancelar</a>
+          <button class="btn btn-primary btn-lg px-4" type="submit">Enviar solicitud de reemplazo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const asigData = JSON.parse('{{ asig_data_json|escapejs }}');
+  const asigSelect = document.getElementById("id_asignacion");
+  const inputHoraIni = document.getElementById("id_hora_inicio_reemplazo");
+  const inputHoraFin = document.getElementById("id_hora_fin_reemplazo");
+  const seccionModo = document.getElementById("seccionModoReemplazo");
+  const contenedorBloques = document.getElementById("contenedorBloquesHoras");
+  const listaBotonesBloques = document.getElementById("listaBotonesBloques");
+  const resumenHorasReparto = document.getElementById("resumenHorasReparto");
+  const textoRepartoHoras = document.getElementById("textoRepartoHoras");
+  const numMaxHoras = document.getElementById("numMaxHoras");
+  const btnModoCompleto = document.getElementById("btnModoCompleto");
+  const btnModoParcial = document.getElementById("btnModoParcial");
+
+  let modoActual = "completo"; // "completo" o "parcial"
+  let horasSeleccionadasSet = new Set(); // Set de números de hora (ej: Set(7, 8))
+
+  function cambiarModo(nuevoModo) {
+    modoActual = nuevoModo;
+    if (nuevoModo === "completo") {
+      btnModoCompleto.classList.add("active");
+      btnModoParcial.classList.remove("active");
+      contenedorBloques.style.display = "none";
+      inputHoraIni.value = "";
+      inputHoraFin.value = "";
+      horasSeleccionadasSet.clear();
+      actualizarEstilosBotones();
+    } else {
+      btnModoParcial.classList.add("active");
+      btnModoCompleto.classList.remove("active");
+      contenedorBloques.style.display = "block";
+      const asigId = asigSelect.value;
+      const data = asigData[asigId];
+      if (data && data.bloques.length > 0) {
+        if (horasSeleccionadasSet.size === 0) {
+          // Por defecto seleccionar el primer bloque
+          toggleBloqueHora(data.bloques[0].hora_num);
+        } else {
+          actualizarRangoYResumen();
+        }
+      }
+    }
+  }
+
+  function toggleBloqueHora(horaNum) {
+    const asigId = asigSelect.value;
+    const data = asigData[asigId];
+    if (!data) return;
+
+    const totalHoras = data.duracion_horas;
+    const maxHorasParcial = totalHoras - 1;
+
+    if (horasSeleccionadasSet.has(horaNum)) {
+      // Deseleccionar (no permitir dejar 0 bloques seleccionados)
+      if (horasSeleccionadasSet.size > 1) {
+        horasSeleccionadasSet.delete(horaNum);
+      }
+    } else {
+      // Si ya tiene el máximo permitido (totalHoras - 1) y selecciona la que falta (alcanza el total):
+      if (horasSeleccionadasSet.size >= maxHorasParcial) {
+        // Al seleccionar todas las horas del turno, cambia automáticamente a la opción "Todo el turno"
+        cambiarModo("completo");
+        return;
+      }
+      horasSeleccionadasSet.add(horaNum);
+    }
+
+    actualizarRangoYResumen();
+  }
+
+  function actualizarRangoYResumen() {
+    const asigId = asigSelect.value;
+    const data = asigData[asigId];
+    if (!data || horasSeleccionadasSet.size === 0) return;
+
+    // Calcular hora de inicio mínima y hora de fin máxima
+    const horasArr = Array.from(horasSeleccionadasSet).sort((a, b) => a - b);
+    const minHora = Math.min(...horasArr);
+    const maxHora = Math.max(...horasArr) + 1; // hora de fin es +1
+
+    const inicioStr = `${minHora.toString().padStart(2, '0')}:00`;
+    const finStr = `${maxHora.toString().padStart(2, '0')}:00`;
+
+    inputHoraIni.value = inicioStr;
+    inputHoraFin.value = finStr;
+
+    actualizarEstilosBotones();
+
+    // Calcular desglose de horas intuitivo
+    const duracionReemplazo = maxHora - minHora;
+    const totalHoras = data.duracion_horas;
+    const horasTitular = totalHoras - duracionReemplazo;
+
+    let mensaje = "";
+    if (horasTitular > 0) {
+      mensaje = `Tú mantendrás ${horasTitular} hora${horasTitular > 1 ? 's' : ''} y tu compañero cubrirá ${duracionReemplazo} hora${duracionReemplazo > 1 ? 's' : ''} (${inicioStr} a ${finStr}).`;
+    } else {
+      mensaje = `Tu compañero cubrirá el turno entero (${inicioStr} a ${finStr}).`;
+    }
+
+    textoRepartoHoras.textContent = mensaje;
+    resumenHorasReparto.style.display = "block";
+  }
+
+  function actualizarEstilosBotones() {
+    document.querySelectorAll(".btn-bloque-hora").forEach(btn => {
+      const h = parseInt(btn.dataset.horaNum, 10);
+      if (horasSeleccionadasSet.has(h)) {
+        btn.classList.add("seleccionado");
+        btn.innerHTML = `<i class="bi bi-check2-circle me-1"></i> ${btn.dataset.inicio} a ${btn.dataset.fin}`;
+      } else {
+        btn.classList.remove("seleccionado");
+        btn.innerHTML = `<i class="bi bi-clock me-1"></i> ${btn.dataset.inicio} a ${btn.dataset.fin}`;
+      }
+    });
+  }
+
+  function actualizarInterfazTurno() {
+    const asigId = asigSelect.value;
+    const data = asigData[asigId];
+
+    // Resaltar en grilla
+    document.querySelectorAll(".grilla-turno-card").forEach(card => {
+      if (card.dataset.asignacionId === asigId) {
+        card.classList.add("turno-seleccionado");
+      } else {
+        card.classList.remove("turno-seleccionado");
+      }
+    });
+
+    if (data) {
+      seccionModo.style.display = "block";
+      btnModoCompleto.innerHTML = `<i class="bi bi-clock-fill me-1"></i> Todo el turno (${data.duracion_horas} horas: ${data.hora_inicio} a ${data.hora_fin})`;
+      
+      const maxPermitido = data.duracion_horas - 1;
+      if (numMaxHoras) {
+        numMaxHoras.textContent = maxPermitido;
+      }
+
+      // Renderizar botones de 1 hora
+      listaBotonesBloques.innerHTML = "";
+      horasSeleccionadasSet.clear();
+
+      data.bloques.forEach(b => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-outline-secondary btn-sm btn-bloque-hora py-2 px-3";
+        btn.dataset.horaNum = b.hora_num;
+        btn.dataset.inicio = b.inicio;
+        btn.dataset.fin = b.fin;
+        btn.innerHTML = `<i class="bi bi-clock me-1"></i> ${b.inicio} a ${b.fin}`;
+        btn.onclick = () => toggleBloqueHora(b.hora_num);
+        listaBotonesBloques.appendChild(btn);
+      });
+
+      if (modoActual === "parcial" && data.bloques.length > 0) {
+        toggleBloqueHora(data.bloques[0].hora_num);
+      }
+    } else {
+      seccionModo.style.display = "none";
+      contenedorBloques.style.display = "none";
+    }
+  }
+
+  function seleccionarTurnoDesdeGrilla(asigId) {
+    if (asigSelect) {
+      asigSelect.value = asigId;
+      actualizarInterfazTurno();
+      document.getElementById("formReemplazo").scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  asigSelect.addEventListener("change", () => {
+    cambiarModo("completo");
+    actualizarInterfazTurno();
+  });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const preseleccionada = "{{ selected_asignacion_id }}";
+    if (preseleccionada && asigSelect) {
+      asigSelect.value = preseleccionada;
+    }
+    if (asigSelect.value) {
+      actualizarInterfazTurno();
+    }
+  });
+</script>
 {% endblock %}

@@ -3,12 +3,13 @@ tests.py — app cambios
 
 Cubre:
   - Modelo SolicitudCambio (clean: dueño, mismo solicitante/reemplazo,
-    rol reemplazo, conflicto horario, una sola pendiente por asignación)
+    rol reemplazo, conflicto horario, una sola pendiente por asignación,
+    motivo obligatorio con mín. 10 caracteres, evidencia obligatoria en PDF/imagen)
   - save() actualiza fecha_respuesta al cambiar estado
   - Service crear_solicitud_cambio
-  - Service aprobar_solicitud (cambia monitor de asignación, verifica conflicto)
+  - Service aprobar_solicitud (cambia monitor de asignación, verifica conflicto, divide bloques)
   - Service rechazar_solicitud
-  - Vista crear_solicitud_view (monitor crea, validaciones de form)
+  - Vista crear_solicitud_view (grilla semanal, selección de bloques, evidencia obligatoria, nombres)
   - Vista mis_solicitudes_view (solo ve las propias)
   - Vista lista_solicitudes_view (solo admin)
   - Vista responder_solicitud_view (aprueba/rechaza)
@@ -17,6 +18,7 @@ Cubre:
 from datetime import time
 
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils.timezone import now
@@ -37,7 +39,7 @@ from usuarios.models import Usuario
 def _usuario(email, cedula, rol=Usuario.MONITOR) -> Usuario:
     return Usuario.objects.create_user(
         username=email, email=email, password="pass123",
-        cedula=cedula, rol=rol, first_name="N", last_name="A",
+        cedula=cedula, rol=rol, first_name="Nombre", last_name="Apellido",
     )
 
 
@@ -59,6 +61,10 @@ def _asignacion(monitor, horario, semestre) -> Asignacion:
     return Asignacion.objects.create(
         monitor=monitor, horario=horario, semestre=semestre,
     )
+
+
+def _dummy_pdf(nombre="comprobante.pdf") -> SimpleUploadedFile:
+    return SimpleUploadedFile(nombre, b"%PDF-1.4 prueba", content_type="application/pdf")
 
 
 class BaseTestCase(TestCase):
@@ -86,7 +92,8 @@ class SolicitudCambioCleanTests(BaseTestCase):
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
             tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
-            motivo="Razón",
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
         defaults.update(kwargs)
         return SolicitudCambio(**defaults)
@@ -134,10 +141,11 @@ class SolicitudCambioCleanTests(BaseTestCase):
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
             tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
-            motivo="Primera",
+            motivo="Primera solicitud justificada",
+            evidencia=_dummy_pdf(),
         )
         # Segunda intenta crearse con validate=False para llegar al clean
-        s = self._solicitud_base(motivo="Segunda")
+        s = self._solicitud_base(motivo="Segunda solicitud justificada")
         with self.assertRaises(ValidationError):
             s.clean()
 
@@ -154,6 +162,8 @@ class SolicitudCambioSaveTests(BaseTestCase):
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
             tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
         self.assertIsNone(s.fecha_respuesta)
 
@@ -171,6 +181,8 @@ class SolicitudCambioSaveTests(BaseTestCase):
             tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
             estado=SolicitudCambio.RECHAZADA,
             fecha_respuesta=fecha_fija,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
         s.save(validate=False)
         s.refresh_from_db()
@@ -188,7 +200,8 @@ class CrearSolicitudServiceTests(BaseTestCase):
             asignacion=self.asignacion,
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
-            motivo="No puedo ir",
+            motivo="No puedo ir por calamidad doméstica",
+            evidencia=_dummy_pdf(),
         )
         self.assertEqual(s.estado, SolicitudCambio.PENDIENTE)
         self.assertEqual(s.tipo, SolicitudCambio.TIPO_CAMBIO_TURNO)
@@ -200,6 +213,8 @@ class CrearSolicitudServiceTests(BaseTestCase):
                 asignacion=self.asignacion,
                 solicitante=self.monitor2,  # no es dueño
                 monitor_reemplazo=self.monitor1,
+                motivo="Motivo justificado de más de diez caracteres",
+                evidencia=_dummy_pdf(),
             )
 
     def test_falla_si_reemplazo_igual_solicitante(self):
@@ -208,6 +223,8 @@ class CrearSolicitudServiceTests(BaseTestCase):
                 asignacion=self.asignacion,
                 solicitante=self.monitor1,
                 monitor_reemplazo=self.monitor1,
+                motivo="Motivo justificado de más de diez caracteres",
+                evidencia=_dummy_pdf(),
             )
 
 
@@ -223,7 +240,8 @@ class AprobarSolicitudServiceTests(BaseTestCase):
             asignacion=self.asignacion,
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
-            motivo="Test",
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
 
     def test_aprueba_y_cambia_monitor_de_asignacion(self):
@@ -272,6 +290,8 @@ class RechazarSolicitudServiceTests(BaseTestCase):
             asignacion=self.asignacion,
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
 
     def test_rechaza_correctamente(self):
@@ -328,7 +348,8 @@ class CrearSolicitudViewTests(BaseTestCase):
         response = self.client.post(self.url, {
             "asignacion": self.asignacion.pk,
             "monitor_reemplazo": self.monitor2.pk,
-            "motivo": "No puedo asistir",
+            "motivo": "No puedo asistir por cita médica",
+            "evidencia": _dummy_pdf(),
         })
         self.assertEqual(response.status_code, 302)
         self.assertEqual(SolicitudCambio.objects.count(), 1)
@@ -338,7 +359,8 @@ class CrearSolicitudViewTests(BaseTestCase):
         response = self.client.post(self.url, {
             "asignacion": self.asignacion.pk,
             "monitor_reemplazo": self.monitor1.pk,  # mismo que solicitante
-            "motivo": "Test",
+            "motivo": "Motivo justificado de más de diez caracteres",
+            "evidencia": _dummy_pdf(),
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(SolicitudCambio.objects.count(), 0)
@@ -362,6 +384,8 @@ class MisSolicitudesViewTests(BaseTestCase):
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
             tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
         self.client.force_login(self.monitor1)
         response = self.client.get(self.url)
@@ -374,6 +398,8 @@ class MisSolicitudesViewTests(BaseTestCase):
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
             tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
         self.client.force_login(self.monitor2)
         response = self.client.get(self.url)
@@ -399,6 +425,8 @@ class ListaSolicitudesViewTests(BaseTestCase):
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
             tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
         self.client.force_login(self.admin)
         response = self.client.get(self.url)
@@ -416,6 +444,8 @@ class ResponderSolicitudViewTests(BaseTestCase):
             solicitante=self.monitor1,
             monitor_reemplazo=self.monitor2,
             tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
         )
         self.url = reverse("responder_solicitud", args=[self.solicitud.pk])
 
@@ -455,3 +485,263 @@ class ResponderSolicitudViewTests(BaseTestCase):
         self.client.force_login(self.admin)
         response = self.client.get(self.url)
         self.assertRedirects(response, reverse("lista_solicitudes"))
+
+
+# ===========================================================================
+# 7. Pruebas de Motivo Obligatorio y Evidencia Obligatoria
+# ===========================================================================
+
+class SolicitudMotivoYEvidenciaTests(BaseTestCase):
+    """Pruebas para validaciones de motivo y evidencia adjunta obligatoria."""
+
+    def test_motivo_vacio_falla_clean(self):
+        s = SolicitudCambio(
+            asignacion=self.asignacion,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="",
+            evidencia=_dummy_pdf(),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            s.clean()
+        self.assertIn("motivo", ctx.exception.message_dict)
+
+    def test_motivo_menor_a_10_caracteres_falla_clean(self):
+        s = SolicitudCambio(
+            asignacion=self.asignacion,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Corto",
+            evidencia=_dummy_pdf(),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            s.clean()
+        self.assertIn("motivo", ctx.exception.message_dict)
+
+    def test_motivo_valido_pasa_clean(self):
+        s = SolicitudCambio(
+            asignacion=self.asignacion,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Tengo cita médica odontológica inaplazable.",
+            evidencia=_dummy_pdf(),
+        )
+        try:
+            s.clean()
+        except ValidationError:
+            self.fail("clean() falló con un motivo válido de más de 10 caracteres.")
+
+    def test_evidencia_obligatoria_falla_si_no_se_adjunta(self):
+        s = SolicitudCambio(
+            asignacion=self.asignacion,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=None,
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            s.clean()
+        self.assertIn("evidencia", ctx.exception.message_dict)
+
+    def test_evidencia_formato_no_permitido_falla(self):
+        archivo_invalido = SimpleUploadedFile("virus.exe", b"binary...", content_type="application/octet-stream")
+        s = SolicitudCambio(
+            asignacion=self.asignacion,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=archivo_invalido,
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            s.clean()
+        self.assertIn("evidencia", ctx.exception.message_dict)
+
+    def test_evidencia_mayor_a_10mb_falla(self):
+        contenido_pesado = b"0" * (11 * 1024 * 1024)
+        archivo_pesado = SimpleUploadedFile("pesado.pdf", contenido_pesado, content_type="application/pdf")
+        s = SolicitudCambio(
+            asignacion=self.asignacion,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=archivo_pesado,
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            s.clean()
+        self.assertIn("evidencia", ctx.exception.message_dict)
+
+
+# ===========================================================================
+# 8. Pruebas de Reemplazo por Bloques de 1 Hora y Grilla
+# ===========================================================================
+
+class ReemplazoPorBloquesTests(BaseTestCase):
+    """Pruebas para la funcionalidad de reemplazo fraccionado (bloques de 1 hora)."""
+
+    def setUp(self):
+        super().setUp()
+        self.sala_lab = _sala("LAB-404")
+        self.horario_4h = _horario(self.sala_lab, dia=2, inicio=time(7, 0), fin=time(11, 0))
+        self.asignacion_4h = _asignacion(self.monitor1, self.horario_4h, self.semestre)
+
+    def test_solicitud_bloque_1_hora_valida(self):
+        solicitud = SolicitudCambio(
+            asignacion=self.asignacion_4h,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            hora_inicio_reemplazo=time(8, 0),
+            hora_fin_reemplazo=time(9, 0),
+            motivo="Cita médica de 8 a 9 de la mañana",
+            evidencia=_dummy_pdf(),
+        )
+        solicitud.clean()
+        self.assertTrue(solicitud.es_reemplazo_parcial)
+        self.assertEqual(solicitud.duracion_reemplazo_horas, 1)
+        self.assertEqual(solicitud.duracion_titular_horas, 3)
+
+    def test_solicitud_bloque_multiples_horas_hasta_n_menos_1(self):
+        solicitud = SolicitudCambio(
+            asignacion=self.asignacion_4h,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            hora_inicio_reemplazo=time(8, 0),
+            hora_fin_reemplazo=time(11, 0),
+            motivo="Tengo compromiso académico en la mañana",
+            evidencia=_dummy_pdf(),
+        )
+        solicitud.clean()
+        self.assertTrue(solicitud.es_reemplazo_parcial)
+        self.assertEqual(solicitud.duracion_reemplazo_horas, 3)
+        self.assertEqual(solicitud.duracion_titular_horas, 1)
+
+    def test_bloque_fuera_del_horario_asignado_falla(self):
+        solicitud = SolicitudCambio(
+            asignacion=self.asignacion_4h,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            hora_inicio_reemplazo=time(6, 0),
+            hora_fin_reemplazo=time(7, 0),
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            solicitud.clean()
+        self.assertIn("hora_inicio_reemplazo", ctx.exception.message_dict)
+
+    def test_bloque_con_hora_fin_menor_que_inicio_falla(self):
+        solicitud = SolicitudCambio(
+            asignacion=self.asignacion_4h,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            hora_inicio_reemplazo=time(9, 0),
+            hora_fin_reemplazo=time(8, 0),
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            solicitud.clean()
+        self.assertIn("hora_fin_reemplazo", ctx.exception.message_dict)
+
+    def test_reemplazo_disponible_en_bloque_pero_ocupado_en_otro_no_falla(self):
+        sala_otra = _sala("SAL-999")
+        h_otro = _horario(sala_otra, dia=2, inicio=time(9, 0), fin=time(11, 0))
+        _asignacion(self.monitor2, h_otro, self.semestre)
+
+        solicitud = SolicitudCambio(
+            asignacion=self.asignacion_4h,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            hora_inicio_reemplazo=time(7, 0),
+            hora_fin_reemplazo=time(8, 0),
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
+        )
+        try:
+            solicitud.clean()
+        except ValidationError:
+            self.fail("clean() falló aunque el monitor de reemplazo está libre en ese bloque específico.")
+
+    def test_reemplazo_con_conflicto_en_el_bloque_especifico_falla(self):
+        sala_otra = _sala("SAL-998")
+        h_otro = _horario(sala_otra, dia=2, inicio=time(7, 0), fin=time(8, 0))
+        _asignacion(self.monitor2, h_otro, self.semestre)
+
+        solicitud = SolicitudCambio(
+            asignacion=self.asignacion_4h,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            tipo=SolicitudCambio.TIPO_CAMBIO_TURNO,
+            hora_inicio_reemplazo=time(7, 0),
+            hora_fin_reemplazo=time(8, 0),
+            motivo="Motivo justificado de más de diez caracteres",
+            evidencia=_dummy_pdf(),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            solicitud.clean()
+        self.assertIn("monitor_reemplazo", ctx.exception.message_dict)
+
+    def test_aprobar_reemplazo_parcial_en_el_medio_divide_correctamente(self):
+        solicitud = services.crear_solicitud_cambio(
+            asignacion=self.asignacion_4h,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            hora_inicio_reemplazo=time(8, 0),
+            hora_fin_reemplazo=time(9, 0),
+            motivo="Cita médica inaplazable en la mañana",
+            evidencia=_dummy_pdf(),
+        )
+        services.aprobar_solicitud(solicitud=solicitud, admin=self.admin)
+
+        asigs_m2 = Asignacion.objects.filter(monitor=self.monitor2, semestre=self.semestre)
+        self.assertEqual(asigs_m2.count(), 1)
+        self.assertEqual(asigs_m2.first().horario.hora_inicio, time(8, 0))
+        self.assertEqual(asigs_m2.first().horario.hora_fin, time(9, 0))
+
+        asigs_m1 = Asignacion.objects.filter(monitor=self.monitor1, semestre=self.semestre, horario__sala=self.sala_lab)
+        self.assertEqual(asigs_m1.count(), 2)
+        bloques_m1 = sorted([(a.horario.hora_inicio, a.horario.hora_fin) for a in asigs_m1])
+        self.assertEqual(bloques_m1, [(time(7, 0), time(8, 0)), (time(9, 0), time(11, 0))])
+
+    def test_aprobar_reemplazo_parcial_al_inicio(self):
+        solicitud = services.crear_solicitud_cambio(
+            asignacion=self.asignacion_4h,
+            solicitante=self.monitor1,
+            monitor_reemplazo=self.monitor2,
+            hora_inicio_reemplazo=time(7, 0),
+            hora_fin_reemplazo=time(8, 0),
+            motivo="Compromiso temprano de 7 a 8",
+            evidencia=_dummy_pdf(),
+        )
+        services.aprobar_solicitud(solicitud=solicitud, admin=self.admin)
+
+        asig_m2 = Asignacion.objects.filter(monitor=self.monitor2, semestre=self.semestre).first()
+        self.assertEqual(asig_m2.horario.hora_inicio, time(7, 0))
+        self.assertEqual(asig_m2.horario.hora_fin, time(8, 0))
+
+        asig_m1 = Asignacion.objects.filter(monitor=self.monitor1, semestre=self.semestre, horario__sala=self.sala_lab).first()
+        self.assertEqual(asig_m1.horario.hora_inicio, time(8, 0))
+        self.assertEqual(asig_m1.horario.hora_fin, time(11, 0))
+
+    def test_vista_crear_solicitud_muestra_grilla_y_nombres(self):
+        client = Client()
+        client.force_login(self.monitor1)
+        response = client.get(reverse("crear_solicitud"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("grid_rows", response.context)
+        self.assertIn("asig_data_json", response.context)
+
+        form = response.context["form"]
+        label_reemplazo = form.fields["monitor_reemplazo"].label_from_instance(self.monitor2)
+        self.assertEqual(label_reemplazo, self.monitor2.get_full_name())
+        self.assertNotIn("@", label_reemplazo)

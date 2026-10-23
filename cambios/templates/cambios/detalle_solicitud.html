@@ -25,13 +25,27 @@
                     <dd class="col-sm-9">{{ solicitud.id_cambio }}</dd>
                     
                     <dt class="col-sm-3">Asignación</dt>
-                    <dd class="col-sm-9">{{ solicitud.asignacion }}</dd>
+                    <dd class="col-sm-9">
+                      {{ solicitud.asignacion.horario.sala.codigo }} — {{ solicitud.asignacion.horario.sala.nombre }}
+                      <div class="text-muted small">
+                        {{ solicitud.asignacion.horario.get_dia_semana_display }},
+                        de {{ solicitud.asignacion.horario.hora_inicio|time:"H:i" }}
+                        a {{ solicitud.asignacion.horario.hora_fin|time:"H:i" }}
+                        · Semestre {{ solicitud.asignacion.semestre }}
+                      </div>
+                    </dd>
                     
                     <dt class="col-sm-3">Solicitante</dt>
                     <dd class="col-sm-9">{{ solicitud.solicitante.get_full_name|default:solicitud.solicitante.email }}</dd>
                     
                     <dt class="col-sm-3">Monitor Reemplazo</dt>
-                    <dd class="col-sm-9">{{ solicitud.monitor_reemplazo.get_full_name|default:solicitud.monitor_reemplazo.email }}</dd>
+                    <dd class="col-sm-9">
+                      {{ solicitud.monitor_reemplazo.get_full_name|default:solicitud.monitor_reemplazo.email }}
+                      <div class="text-muted small">
+                        Cubre el turno de {{ solicitud.asignacion.horario.hora_inicio|time:"H:i" }}
+                        a {{ solicitud.asignacion.horario.hora_fin|time:"H:i" }}
+                      </div>
+                    </dd>
                     
                     <dt class="col-sm-3">Estado</dt>
                     <dd class="col-sm-9">

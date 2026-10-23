@@ -34,9 +34,21 @@
                   {% for solicitud in solicitudes %}
                     <tr>
                       <td>
-                        {{ solicitud.asignacion }}
+                        <div class="fw-semibold">{{ solicitud.asignacion.horario.sala.codigo }} — {{ solicitud.asignacion.horario.sala.nombre }}</div>
+                        <small class="text-muted">
+                          {{ solicitud.asignacion.horario.get_dia_semana_display }},
+                          de {{ solicitud.asignacion.horario.hora_inicio|time:"H:i" }}
+                          a {{ solicitud.asignacion.horario.hora_fin|time:"H:i" }}
+                          ({{ solicitud.asignacion.semestre }})
+                        </small>
                       </td>
-                      <td>{{ solicitud.monitor_reemplazo.get_full_name|default:solicitud.monitor_reemplazo.email }}</td>
+                      <td>
+                        {{ solicitud.monitor_reemplazo.get_full_name|default:solicitud.monitor_reemplazo.email }}
+                        <small class="text-muted d-block">
+                          cubre de {{ solicitud.asignacion.horario.hora_inicio|time:"H:i" }}
+                          a {{ solicitud.asignacion.horario.hora_fin|time:"H:i" }}
+                        </small>
+                      </td>
                       <td>
                         <span class="badge 
                           {% if solicitud.estado == 'pendiente' %}bg-warning

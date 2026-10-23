@@ -10,7 +10,7 @@
           <div class="d-flex flex-column flex-sm-row align-items-sm-start justify-content-between gap-3 mb-4">
             <div>
               <h1 class="h4 fw-semibold text-sgmsc mb-1">Mis Asignaciones</h1>
-              <p class="text-muted mb-0">Turnos y horarios asignados para este semestre.</p>
+              <p class="text-muted mb-0">Turnos y horarios asignados para el semestre {% if semestre_activo %}{{ semestre_activo }}{% else %}activo{% endif %}.</p>
             </div>
             <a class="btn btn-outline-secondary" href="{% url 'monitor_dashboard' %}">Volver al panel</a>
           </div>
@@ -20,7 +20,6 @@
               <table class="table table-striped table-hover align-middle">
                 <thead class="table-light">
                   <tr>
-                    <th>Semestre</th>
                     <th>Día</th>
                     <th>Horario</th>
                     <th>Sala</th>
@@ -31,7 +30,6 @@
                 <tbody>
                   {% for asignacion in asignaciones %}
                     <tr>
-                      <td>{{ asignacion.semestre }}</td>
                       <td>{{ asignacion.horario.get_dia_semana_display }}</td>
                       <td>{{ asignacion.horario.hora_inicio|time:"H:i" }} - {{ asignacion.horario.hora_fin|time:"H:i" }}</td>
                       <td>{{ asignacion.horario.sala.nombre }} ({{ asignacion.horario.sala.codigo }})</td>
